@@ -3,11 +3,10 @@
     "configurations": [
         {
             "name": "Python: Reflex",
-            "type": "debugpy",
+            "type": "python",
             "request": "launch",
             "module": "reflex",
             "args": ["run"],
-            "jinja": true,
             "justMyCode": true
         }
     ]
