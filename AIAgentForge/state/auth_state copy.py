@@ -43,35 +43,13 @@ class AuthState(BaseState):
             self.is_authenticated = True
             yield
         except Exception:
-            # 3. get_user 실패: access_token이 만료되었거나 유효하지 않습니다.
-            # 이제 refresh_token으로 세션 갱신을 시도합니다.
-            if not self.refresh_token:
-                # 갱신 토큰조차 없으면 완전히 로그아웃 처리합니다.
-                self.access_token = ""
-                self.is_authenticated = False
-                self.user = None
-                yield rx.redirect("/login")
-                return
-            
-            try:
-                # 4. refresh_token으로 세션 갱신을 시도합니다.
-                response = self.supabase_client.auth.refresh_session(self.refresh_token)
-                
-                # 5. 세션 갱신 성공: 새로운 토큰과 사용자 정보로 상태를 업데이트합니다.
-                self.access_token = response.session.access_token
-                self.refresh_token = response.session.refresh_token
-                self.user = response.user
-                self.is_authenticated = True
-                yield
-            except Exception:
-                # 6. 세션 갱신 실패: refresh_token도 만료되었거나 유효하지 않습니다.
-                # 모든 인증 정보를 지우고 로그인 페이지로 보냅니다.
-                self.access_token = ""
-                self.refresh_token = ""
-                self.is_authenticated = False
-                self.user = None
-                yield rx.redirect("/login")
-
+            # The token is invalid or expired.
+            # Clear all local auth state and redirect to login.
+            self.access_token = ""
+            self.refresh_token = ""
+            self.is_authenticated = False
+            self.user = None
+            yield rx.redirect("/login")
 
     async def handle_login(self, form_data: dict):
         """Handles the login form submission."""

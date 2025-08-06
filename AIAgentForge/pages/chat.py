@@ -3,6 +3,7 @@
 import reflex as rx
 from AIAgentForge.state.chat_state import ChatState
 from AIAgentForge.components.chat_bubble import chat_bubble
+from AIAgentForge.components.navbar import navbar  # Navbar 임포트 추가
 
 def action_bar() -> rx.Component:
     """사용자 입력을 받는 하단의 액션 바 컴포넌트입니다."""
@@ -37,6 +38,7 @@ def chat_page() -> rx.Component:
     채팅 페이지의 메인 UI를 정의하는 컴포넌트 함수입니다.
     """
     return rx.vstack(
+        navbar(),  # Navbar 추가
         rx.box(
             # rx.foreach를 사용하여 chat_history 리스트를 순회하며
             # 각 메시지에 대해 chat_bubble 컴포넌트를 렌더링합니다.

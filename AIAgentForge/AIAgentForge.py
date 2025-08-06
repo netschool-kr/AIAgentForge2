@@ -7,8 +7,6 @@ from AIAgentForge.pages.chat import chat_page  # 새로 만든 chat_page를 가�
 from AIAgentForge.pages.login import login_page      # 로그인 페이지 import
 from AIAgentForge.pages.signup import signup_page    # 회원가입 페이지 import
 from AIAgentForge.state.auth_state import AuthState  # 변경: AuthState import 추가 (BaseState 대신 사용)
-from AIAgentForge.state.base import BaseState  # 변경: AuthState import 추가 (BaseState 대신 사용)
-from functools import partial
 
 load_dotenv()  # .env 파일에서 환경 변수를 로드합니다.
 
