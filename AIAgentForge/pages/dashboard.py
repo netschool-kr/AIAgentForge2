@@ -2,12 +2,14 @@
 import reflex as rx
 #from reflex.components.recharts import recharts
 from AIAgentForge.state.dashboard_state import DashboardState
+from AIAgentForge.components.navbar import navbar  # Navbar 임포트 추가
 
 def dashboard_page() -> rx.Component:
     """
     대시보드의 메인 페이지 UI를 정의하는 컴포넌트 함수입니다.
     """
     return rx.vstack(
+        navbar(),  # Navbar 추가
         rx.heading("사용자 대시보드", size="8"),
         rx.table.root(
             rx.table.header(
