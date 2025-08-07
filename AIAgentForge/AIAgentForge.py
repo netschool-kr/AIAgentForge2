@@ -7,18 +7,19 @@ from AIAgentForge.pages.chat import chat_page  # 새로 만든 chat_page를 가�
 from AIAgentForge.pages.login import login_page      # 로그인 페이지 import
 from AIAgentForge.pages.signup import signup_page    # 회원가입 페이지 import
 from AIAgentForge.state.auth_state import AuthState  # 변경: AuthState import 추가 (BaseState 대신 사용)
+from AIAgentForge.pages.collections import collections_page # 새로 만든 페이지 import
+from AIAgentForge.state.collection_state import CollectionState  # CollectionState import 추가
 
 load_dotenv()  # .env 파일에서 환경 변수를 로드합니다.
 
 # 애플리케이션 인스턴스를 생성합니다.
 app = rx.App()
 
-# 기존 대시보드 페이지를 루트 URL에 연결합니다.
+# 보호된 라우트
 app.add_page(dashboard_page, route="/", on_load=AuthState.check_auth)  
-
-# 새로운 채팅 페이지를 '/chat' URL 경로에 연결합니다.
 app.add_page(chat_page, route="/chat", on_load=AuthState.check_auth)  
+app.add_page(collections_page, route="/collections", on_load=[AuthState.check_auth, CollectionState.load_collections]) # on_load에 load_collections 추가
 
-# 신규 인증 라우트 추가
+# 공개 라우트
 app.add_page(login_page, route="/login")
 app.add_page(signup_page, route="/signup")

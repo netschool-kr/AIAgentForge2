@@ -11,7 +11,11 @@ def navbar() -> rx.Component:
             AuthState.is_authenticated,
             # 로그인 상태일 때
             rx.hstack(
-                rx.text(AuthState.user_email),
+                rx.link("대시보드", href="/"),
+                rx.link("컬렉션", href="/collections"), # 컬렉션 페이지 링크 추가
+                rx.link("채팅", href="/chat"),
+                rx.spacer(),
+                rx.text(AuthState.user.email),
                 rx.button("로그아웃", on_click=AuthState.handle_logout),
                 spacing="4",
             ),
