@@ -1,20 +1,20 @@
 # AIAgentForge/pages/collection_detail.py (가칭)
 import reflex as rx
-from ...state.ingestion_state import IngestionState
+from ...state.document_state import DocumentState
 
 def render_upload_progress() -> rx.Component:
     """각 파일의 업로드 진행 상황을 동적으로 렌더링합니다."""
     return rx.vstack(
         rx.foreach(
-            IngestionState.upload_progress.keys(),
+            DocumentState.upload_progress.keys(),
             lambda filename: rx.vstack(
                 rx.text(filename),
-                rx.progress(value=IngestionState.upload_progress.get(filename, 0)),
-                rx.text(IngestionState.upload_status.get(filename, "")),
+                rx.progress(value=DocumentState.upload_progress.get(filename, 0)),
+                rx.text(DocumentState.upload_status.get(filename, "")),
                 rx.cond(
-                    IngestionState.upload_errors.get(filename),
+                    DocumentState.upload_errors.get(filename),
                     rx.callout(
-                        IngestionState.upload_errors.get(filename, ""),
+                        DocumentState.upload_errors.get(filename, ""),
                         icon="alert_triangle",
                         color_scheme="red",
                     ),
@@ -35,8 +35,8 @@ def collection_detail_page() -> rx.Component:
             border="1px dotted rgb(107, 114, 128)",
             padding="2em",
             width="100%",
-            on_drop=IngestionState.handle_upload,
-            is_disabled=IngestionState.is_uploading,
+            on_drop=DocumentState.handle_upload,
+            is_disabled=DocumentState.is_uploading,
         ),
         render_upload_progress(), # 동적 진행 상황 표시 부분
         #...

@@ -10,7 +10,7 @@ import PyPDF2 # PDF 처리를 위한 라이브러리 [9, 10]
 import docx # DOCX 처리를 위한 라이브러리 [11, 12]
 from langchain.text_splitter import RecursiveCharacterTextSplitter # 텍스트 분할을 위한 LangChain 라이브러리 [13, 14]
 
-class IngestionState(BaseState):
+class DocumentState(BaseState):
     """파일 업로드 및 수집 파이프라인과 관련된 모든 상태와 로직을 관리합니다."""
 
     # 여러 파일이 동시에 처리 중인지 여부를 나타내는 플래그
@@ -36,7 +36,7 @@ class IngestionState(BaseState):
         # The 'files' argument will be a list of rx.UploadFile objects at runtime
         for file in files:
             # 각 파일에 대해 별도의 백그라운드 작업을 비동기적으로 시작
-            yield IngestionState.process_single_file(file, collection_id)
+            yield DocumentState.process_single_file(file, collection_id)
 
     @rx.event(background=True)
     async def process_single_file(self, file: rx.UploadFile, collection_id: str):
