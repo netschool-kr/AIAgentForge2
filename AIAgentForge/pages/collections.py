@@ -26,25 +26,43 @@ def render_creation_form() -> rx.Component:
     
 
 def render_collection_item(collection: dict) -> rx.Component:
-    """단일 컬렉션 아이템을 렌더링하는 컴포넌트."""
-    return rx.card(
-        rx.hstack(
-            rx.vstack(
-                rx.heading(collection["name"], size="5"),
-                rx.text(f"생성일: {collection['created_at']}"),
-                align_items="start",
+    """단일 컬렉션 아이템을 렌더링하고, 상세 페이지로 연결되는 링크를 포함합니다."""
+    return rx.link(
+        rx.card(
+            rx.hstack(
+                rx.vstack(
+                    rx.heading(collection["name"], size="5"),
+                    rx.text(f"생성일: {collection['created_at']}"),
+                    align_items="start",
+                ),
+                rx.spacer(),
+                rx.cond(
+                    CollectionState.show_confirm_modal,
+                    rx.dialog.root(
+                        rx.dialog.content(
+                            rx.dialog.title("삭제 확인"),
+                            rx.dialog.description("정말로 이 컬렉션을 삭제하시겠습니까?"),
+                            rx.flex(
+                                rx.button("취소", on_click=CollectionState.cancel_delete),
+                                rx.button("삭제", on_click=CollectionState.confirm_delete, color_scheme="red"),
+                                spacing="3",
+                                margin_top="16px",
+                                justify="end",
+                            ),
+                        ),
+                    ),
+                ),
+                rx.icon(tag="chevron_right"), # 사용자가 클릭할 수 있음을 시각적으로 암시
+                align_items="center",
+                width="100%",
             ),
-            rx.spacer(),
-            rx.button(
-                "삭제",
-                on_click=lambda: CollectionState.delete_collection(collection["id"]),
-                color_scheme="red",
-                variant="soft",
-            ),
-            align_items="center",
             width="100%",
         ),
+        href=f"/collections/{collection['id']}", # 동적 경로로 연결
         width="100%",
+        text_decoration="none", # 링크 기본 스타일 제거
+        color="inherit",
+        _hover={}, # 호버 효과 제거
     )
 
 def render_collections_list() -> rx.Component:

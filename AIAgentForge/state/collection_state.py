@@ -22,9 +22,33 @@ class CollectionState(BaseState):
     # 사용자 피드백을 위한 상태 변수들
     show_alert: bool = False
     alert_message: str = ""
+    show_confirm_modal: bool = False  # New: Modal visibility
+    collection_id_to_delete: int = None  # New: ID to delete
 
+    def show_confirm(self, collection_id: int):
+        """Show confirmation modal for deletion."""
+        self.collection_id_to_delete = collection_id
+        self.show_confirm_modal = True
 
-               
+    def cancel_delete(self):
+        """Cancel deletion."""
+        self.show_confirm_modal = False
+        self.collection_id_to_delete = None
+
+    @rx.event
+    async def confirm_delete(self):  # New async handler for confirm
+        """Confirm and perform deletion."""
+        self.show_confirm_modal = False
+        if self.collection_id_to_delete is None:
+            return
+        try:
+            client = await self._get_authenticated_client()  # Await the helper
+            client.from_("collections").delete().eq("id", self.collection_id_to_delete).execute()
+            self.collection_id_to_delete = None
+            return CollectionState.load_collections  # Class reference
+        except Exception as e:
+            return rx.window_alert(f"삭제 실패: {e}")
+                      
     async def _get_authenticated_client(self):
         """Create authenticated Postgrest client with user's token."""
         auth_state = await self.get_state(AuthState)  # Await get_state
