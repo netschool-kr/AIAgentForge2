@@ -1,98 +1,153 @@
-# AIAgentForge/state/ingestion_state.py
+# AIAgentForge/state/document_state.py
 import reflex as rx
-from.base import BaseState
-from.collection_state import CollectionState
+from .base import BaseState
+from .auth_state import AuthState
+import os
+from dotenv import load_dotenv
+from postgrest import SyncPostgrestClient
 import asyncio
-from reflex.vars import Var
-from typing import List, Any # Import Any
-import io
-import PyPDF2 # PDF 처리를 위한 라이브러리 [9, 10]
-import docx # DOCX 처리를 위한 라이브러리 [11, 12]
-from langchain.text_splitter import RecursiveCharacterTextSplitter # 텍스트 분할을 위한 LangChain 라이브러리 [13, 14]
+from supabase import create_client, Client
+import io # For handling file bytes
+
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 class DocumentState(BaseState):
-    """파일 업로드 및 수집 파이프라인과 관련된 모든 상태와 로직을 관리합니다."""
-
-    # 여러 파일이 동시에 처리 중인지 여부를 나타내는 플래그
-    is_uploading: bool = False
-
-    # 각 파일의 진행률을 추적하는 딕셔너리 (filename: progress)
-    upload_progress: dict[str, int] = {}
+    """특정 컬렉션의 문서 관리와 관련된 상태 및 로직을 처리합니다."""
     
-    # 각 파일의 현재 처리 상태를 추적하는 딕셔너리 (filename: status_message)
+    documents: list[dict] = []
+    is_loading: bool = False
+    is_uploading: bool = False
+    
+    upload_progress: dict[str, int] = {}
     upload_status: dict[str, str] = {}
-
-    # 각 파일의 오류 메시지를 저장하는 딕셔너리 (filename: error_message)
     upload_errors: dict[str, str] = {}
+    
+    show_alert: bool = False
+    alert_message: str = ""
 
+    async def _get_authenticated_client(self) -> SyncPostgrestClient:
+        auth_state = await self.get_state(AuthState)
+        if not auth_state.is_authenticated:
+            raise Exception("사용자가 인증되지 않았습니다.")
+        return SyncPostgrestClient(
+            f"{SUPABASE_URL}/rest/v1",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {auth_state.access_token}",
+            }
+        )
 
-    @rx.event(background=True)
-    async def handle_upload(self, files: Any):
-        """파일 업로드를 처리하고 각 파일에 대한 백그라운드 작업을 시작합니다."""
-        collection_id = self.router.page.params["collection_id"]
-        async with self:
-            self.is_uploading = True
-        
-        # The 'files' argument will be a list of rx.UploadFile objects at runtime
-        for file in files:
-            # 각 파일에 대해 별도의 백그라운드 작업을 비동기적으로 시작
-            yield DocumentState.process_single_file(file, collection_id)
+    async def _get_supabase_client(self) -> Client:
+        auth_state = await self.get_state(AuthState)
+        if not auth_state.is_authenticated:
+            raise Exception("사용자가 인증되지 않았습니다.")
+        client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        client.auth.set_session(auth_state.access_token, '')
+        return client
 
-    @rx.event(background=True)
-    async def process_single_file(self, file: rx.UploadFile, collection_id: str):
-        """단일 파일을 처리하는 전체 파이프라인."""
-        filename = file.filename
+    async def load_documents_on_page_load(self):
+        collection_id = self.router.page.params.get("collection_id")
+        if not collection_id:
+            self.alert_message = "컬렉션 ID를 찾을 수 없습니다."
+            self.show_alert = True
+            return
+
+        self.is_loading = True
+        yield
         try:
-            # 1. 초기 상태 설정
-            async with self:
-                self.upload_progress[filename] = 0
-                self.upload_status[filename] = "업로드 중..."
-            
-            content_bytes = await file.read()
-
-            # 2. 텍스트 추출
-            async with self:
-                self.upload_status[filename] = "텍스트 추출 중..."
-            
-            text = ""
-            if "pdf" in file.content_type:
-                reader = PyPDF2.PdfReader(io.BytesIO(content_bytes)) # [9, 10]
-                for page in reader.pages:
-                    text += page.extract_text()
-            elif "vnd.openxmlformats-officedocument.wordprocessingml.document" in file.content_type:
-                doc = docx.Document(io.BytesIO(content_bytes)) # [11, 12]
-                for para in doc.paragraphs:
-                    text += para.text + "\n"
-            
-            async with self:
-                self.upload_progress[filename] = 25
-                # 3. 텍스트 분할 (Chunking)
-                self.upload_status[filename] = "텍스트 분할 중..."
-            
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200) # [13, 14]
-            chunks = text_splitter.split_text(text)
-
-            async with self:
-                self.upload_progress[filename] = 50
-
-                # 4. 임베딩 생성 및 5. 데이터베이스 삽입
-                self.upload_status[filename] = "임베딩 생성 및 저장 중..."
-            
-            # (이 부분은 OpenAI API 호출 및 Supabase DB 삽입 로직으로 채워집니다.)
-            # 예: OpenAI 임베딩 API 호출, document_sections 테이블에 배치 삽입
-            # 진행률을 50%에서 100%까지 점진적으로 업데이트
-            
-            # 6. 완료
-            async with self:
-                self.upload_progress[filename] = 100
-                self.upload_status[filename] = "완료"
-
+            client = await self._get_authenticated_client()
+            response = client.from_("documents").select("*").eq("collection_id", collection_id).execute()
+            self.documents = response.data
         except Exception as e:
-            async with self:
-                self.upload_errors[filename] = f"처리 중 오류 발생: {str(e)}"
-                self.upload_status[filename] = "오류"
-        
+            self.alert_message = f"문서 로딩 실패: {e}"
+            self.show_alert = True
         finally:
-            # 모든 파일 처리가 끝났는지 확인 후 is_uploading 상태 해제
-            # (이 로직은 handle_upload의 마지막에 추가되어야 합니다)
-            pass
+            self.is_loading = False
+            yield
+
+    async def handle_upload(self, files: list[rx.UploadFile]):
+        """업로드된 파일들을 처리하며 단계별로 상태를 직접 업데이트합니다."""
+        collection_id = self.router.page.params.get("collection_id")
+        if not collection_id:
+            self.alert_message = "컬렉션이 지정되지 않았습니다."
+            self.show_alert = True
+            return
+
+        if not files:
+            return
+
+        self.is_uploading = True
+        for file in files:
+            filename = file.name
+            self.upload_status[filename] = "대기 중..."
+            self.upload_progress[filename] = 0
+            self.upload_errors.pop(filename, None)
+        yield
+
+        auth_state = await self.get_state(AuthState)
+        if not auth_state.user:
+            self.alert_message = "사용자를 찾을 수 없습니다."
+            self.show_alert = True
+            self.is_uploading = False
+            return
+
+        successful_uploads = 0
+        supabase_client = await self._get_supabase_client()
+        for file in files:
+            filename = file.name
+            try:
+                self.upload_status[filename] = "처리 중..."
+                self.upload_progress[filename] = 33
+                yield
+
+                upload_data = await file.read()
+                
+                self.upload_status[filename] = "스토리지에 업로드 중..."
+                self.upload_progress[filename] = 66
+                yield
+
+                # *** 중요: 버킷 이름을 'document-files'로 변경 (밑줄(_) 대신 하이픈(-) 사용) ***
+                storage_response = supabase_client.storage.from_('document-files').upload(
+                    f"{collection_id}/{filename}",
+                    upload_data,
+                    {'content-type': file.content_type or 'application/octet-stream'}
+                )
+                if not storage_response.full_path:
+                    # Supabase 스토리지 응답이 JSON 형태일 수 있으므로 텍스트로 변환
+                    error_detail = storage_response.text
+                    raise Exception(f"Storage upload failed: {error_detail}")
+
+                db_client = await self._get_authenticated_client()
+                db_client.from_("documents").insert({
+                    "name": filename,
+                    "collection_id": collection_id,
+                    "owner_id": auth_state.user.id,
+                    "storage_path": storage_response.full_path
+                }).execute()
+                
+                self.upload_status[filename] = "✅ 완료"
+                self.upload_progress[filename] = 100
+                successful_uploads += 1
+                yield
+                
+            except Exception as e:
+                self.upload_status[filename] = "❌ 실패"
+                self.upload_errors[filename] = f"오류: {str(e)}"
+                self.upload_progress[filename] = 100
+                yield
+                
+        if successful_uploads > 0:
+            self.alert_message = f"{successful_uploads} / {len(files)}개의 파일이 성공적으로 업로드되었습니다."
+            self.show_alert = True
+            # 컬렉션 상세 페이지에 문서 목록이 있다면 새로고침
+            # yield DocumentState.load_documents_on_page_load
+        
+        await asyncio.sleep(5)
+        self.is_uploading = False
+        self.upload_progress = {}
+        self.upload_status = {}
+        self.upload_errors = {}
+        yield

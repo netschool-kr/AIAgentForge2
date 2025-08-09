@@ -19,7 +19,7 @@ app = rx.App()
 # 보호된 라우트
 app.add_page(dashboard_page, route="/", on_load=AuthState.check_auth)  
 app.add_page(chat_page, route="/chat", on_load=AuthState.check_auth)  
-app.add_page(collections_page, route="/collections", on_load=[AuthState.check_auth, CollectionState.load_collections]) # on_load에 load_collections 추가
+#app.add_page(collections_page, route="/collections", on_load=[AuthState.check_auth, CollectionState.load_collections]) # on_load에 load_collections 추가
 app.add_page(
     collection_detail_page,
     route="/collections/[collection_id]",

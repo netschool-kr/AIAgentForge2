@@ -1,7 +1,7 @@
 # AIAgentForge/state/collection_state.py
 import reflex as rx
 from .base import BaseState
-from .auth_state import AuthState  # Assuming AuthState exists and inherits from BaseState
+from .auth_state import AuthState
 from postgrest import SyncPostgrestClient
 import os
 from dotenv import load_dotenv
@@ -9,49 +9,67 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")  # Anon key for public access, but we'll add bearer token
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 class CollectionState(BaseState):
     """컬렉션 관리와 관련된 모든 상태와 로직을 중앙에서 관리합니다."""
 
-    # UI를 구동하는 핵심 상태 변수들
     collections: list[dict] = []
     is_loading: bool = False
-    new_collection_name: str = ""
     
-    # 사용자 피드백을 위한 상태 변수들
     show_alert: bool = False
     alert_message: str = ""
-    show_confirm_modal: bool = False  # New: Modal visibility
-    collection_id_to_delete: int = None  # New: ID to delete
-
-    def show_confirm(self, collection_id: int):
-        """Show confirmation modal for deletion."""
-        self.collection_id_to_delete = collection_id
-        self.show_confirm_modal = True
-
-    def cancel_delete(self):
-        """Cancel deletion."""
-        self.show_confirm_modal = False
-        self.collection_id_to_delete = None
+    show_confirm_modal: bool = False
+    
+    collection_id_to_delete: str = None
 
     @rx.event
-    async def confirm_delete(self):  # New async handler for confirm
-        """Confirm and perform deletion."""
-        self.show_confirm_modal = False
-        if self.collection_id_to_delete is None:
-            return
-        try:
-            client = await self._get_authenticated_client()  # Await the helper
-            client.from_("collections").delete().eq("id", self.collection_id_to_delete).execute()
+    def set_show_confirm_modal(self, open: bool):
+        """Sets the visibility of the confirmation modal."""
+        self.show_confirm_modal = open
+        if not open:
             self.collection_id_to_delete = None
-            return CollectionState.load_collections  # Class reference
+
+    @rx.event
+    def show_confirm(self, collection_id: str):
+        """Show confirmation modal for deletion."""
+        self.collection_id_to_delete = collection_id
+        self.set_show_confirm_modal(True)
+
+    @rx.event
+    def cancel_delete(self):
+        """Cancel deletion by closing the modal."""
+        self.set_show_confirm_modal(False)
+
+   
+    # ID를 먼저 지역 변수에 저장한 후 삭제 작업을 수행하도록 로직을 변경합니다.
+    @rx.event
+    async def confirm_delete(self):
+        """Confirm and perform deletion."""
+        # 1. 상태가 변경되기 전에 ID를 지역 변수에 저장합니다.
+        collection_id = self.collection_id_to_delete
+
+        # 2. 다이얼로그를 닫습니다. 이 때 collection_id_to_delete는 None이 됩니다.
+        self.set_show_confirm_modal(False)
+
+        # 3. 저장해둔 지역 변수에 ID가 있는지 확인합니다.
+        if collection_id is None:
+            return
+
+        try:
+            # 4. 지역 변수의 ID를 사용하여 삭제를 수행합니다.
+            client = await self._get_authenticated_client()
+            client.from_("collections").delete().eq("id", collection_id).execute()
+            # 5. 목록을 새로고침합니다.
+            yield CollectionState.load_collections
         except Exception as e:
-            return rx.window_alert(f"삭제 실패: {e}")
-                      
+            self.alert_message = f"삭제 실패: {e}"
+            self.show_alert = True
+            yield
+
     async def _get_authenticated_client(self):
         """Create authenticated Postgrest client with user's token."""
-        auth_state = await self.get_state(AuthState)  # Await get_state
+        auth_state = await self.get_state(AuthState)
         if not auth_state.is_authenticated or not hasattr(auth_state, 'access_token'):
             raise Exception("Not authenticated or no token available")
         return SyncPostgrestClient(
@@ -61,19 +79,19 @@ class CollectionState(BaseState):
                 "Authorization": f"Bearer {auth_state.access_token}",
             }
         )
-
-    def set_new_collection_name(self, value: str):
-        """새 컬렉션 이름 상태를 업데이트합니다."""
-        self.new_collection_name = value 
         
     async def load_collections(self):
         """사용자 소유의 모든 컬렉션을 데이터베이스에서 불러옵니다."""
         self.is_loading = True
         yield
-
         try:
+            auth_state = await self.get_state(AuthState)
+            if not auth_state.user:
+                self.is_loading = False
+                return
+            
             client = await self._get_authenticated_client()
-            response = client.from_("collections").select("*").eq("owner_id", self.user.id).order("created_at", desc=True).execute()
+            response = client.from_("collections").select("*").eq("owner_id", auth_state.user.id).order("created_at", desc=True).execute()
             self.collections = response.data
         except Exception as e:
             self.alert_message = f"컬렉션 로딩 실패: {str(e)}"
@@ -82,9 +100,10 @@ class CollectionState(BaseState):
             self.is_loading = False
             yield
     
-    async def create_collection(self):
+    async def create_collection(self, form_data: dict):
         """새로운 컬렉션을 생성합니다."""
-        if not self.new_collection_name.strip():
+        collection_name = form_data.get("name")
+        if not collection_name or not collection_name.strip():
             self.alert_message = "컬렉션 이름은 비워둘 수 없습니다."
             self.show_alert = True
             yield
@@ -92,52 +111,23 @@ class CollectionState(BaseState):
 
         self.is_loading = True
         yield
-
-        success = False
         try:
+            auth_state = await self.get_state(AuthState)
+            if not auth_state.user:
+                raise Exception("User not found")
+
             client = await self._get_authenticated_client()
-            response = client.from_("collections").insert({
-                "name": self.new_collection_name,
-                "owner_id": self.user.id  # 명시적으로 owner_id 추가
+            client.from_("collections").insert({
+                "name": collection_name,
+                "owner_id": auth_state.user.id
             }).execute()
-            
-            # 입력 필드 초기화
-            self.new_collection_name = ""
             
             self.alert_message = "컬렉션이 성공적으로 생성되었습니다."
             self.show_alert = True
-
-            success = True
-            
+            yield CollectionState.load_collections
         except Exception as e:
             self.alert_message = f"컬렉션 생성 실패: {str(e)}"
             self.show_alert = True
         finally:
             self.is_loading = False
             yield
-
-        if success:
-            yield CollectionState.load_collections
-            
-    async def delete_collection(self, collection_id: str):
-        """지정된 ID의 컬렉션을 삭제합니다."""
-        self.is_loading = True
-        yield
-
-        success = False
-        try:
-            client = await self._get_authenticated_client()
-            response = client.from_("collections").delete().eq("id", collection_id).execute()
-            self.alert_message = "컬렉션이 삭제되었습니다."
-            self.show_alert = True
-
-            success = True           
-        except Exception as e:
-            self.alert_message = f"컬렉션 삭제 실패: {str(e)}"
-            self.show_alert = True
-        finally:
-            self.is_loading = False
-            yield
-        
-        if success:
-            yield CollectionState.load_collections
