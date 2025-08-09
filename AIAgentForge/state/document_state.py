@@ -13,6 +13,8 @@ load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+BUCKET_NAME = "document-files"
+DOCUMENT_TABLE = "documents"
 
 class DocumentState(BaseState):
     """특정 컬렉션의 문서 관리와 관련된 상태 및 로직을 처리합니다."""
@@ -151,3 +153,57 @@ class DocumentState(BaseState):
         self.upload_status = {}
         self.upload_errors = {}
         yield
+
+
+    async def delete_document(self, doc_id: str):
+        """문서를 삭제합니다: 스토리지에서 파일 삭제 후 DB에서 레코드 삭제."""
+        self.is_loading = True  # 로딩 상태 설정 (선택적)
+        yield
+
+        try:
+            auth_state = await self.get_state(AuthState)
+            if not auth_state.user:
+                raise Exception("사용자를 찾을 수 없습니다.")
+
+            db_client = await self._get_authenticated_client()
+
+            # 먼저 문서 정보 가져오기 (storage_path 필요)
+            response = db_client.from_("documents").select("storage_path, owner_id").eq("id", doc_id).execute()
+            if not response.data:
+                raise Exception("문서를 찾을 수 없습니다.")
+
+            doc_data = response.data[0]
+            if doc_data["owner_id"] != auth_state.user.id:
+                raise Exception("삭제 권한이 없습니다.")
+
+            storage_path = doc_data["storage_path"]
+
+            # 만약 storage_path가 버킷 이름을 포함하고 있다면 제거 (호환성을 위해)
+            if storage_path.startswith(f"{BUCKET_NAME}/"):
+                path_to_remove = storage_path[len(f"{BUCKET_NAME}/"):]
+            else:
+                path_to_remove = storage_path
+
+            # 스토리지에서 파일 삭제
+            supabase_client = await self._get_supabase_client()
+            storage_response = supabase_client.storage.from_(BUCKET_NAME).remove([path_to_remove])
+            # 삭제 응답 확인: []이면 삭제되지 않음 (경로가 잘못된 경우)
+            if not storage_response:
+                raise Exception("스토리지 파일 삭제 실패: 파일을 찾을 수 없음 또는 경로 오류.")
+
+            # DB에서 레코드 삭제
+            db_client.from_("documents").delete().eq("id", doc_id).execute()
+
+            # 상태 업데이트: 목록에서 제거
+            self.documents = [doc for doc in self.documents if doc["id"] != doc_id]
+
+            self.alert_message = "문서가 성공적으로 삭제되었습니다."
+            self.show_alert = True
+
+        except Exception as e:
+            self.alert_message = f"문서 삭제 실패: {str(e)}"
+            self.show_alert = True
+
+        finally:
+            self.is_loading = False
+            yield

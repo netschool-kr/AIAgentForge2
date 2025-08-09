@@ -51,7 +51,14 @@ def document_list() -> rx.Component:
                 lambda doc: rx.table.row(
                     rx.table.cell(doc["name"]),
                     rx.table.cell(doc["created_at"]),
-                    rx.table.cell(rx.button("삭제", color_scheme="red", variant="soft")),
+                    rx.table.cell(
+                        rx.button(
+                            "삭제", 
+                            color_scheme="red", 
+                            variant="soft",
+                            on_click=DocumentState.delete_document(doc["id"])  # 삭제 핸들러 추가 (doc에 "id" 키가 있다고 가정)
+                        )
+                    ),                    
                 )
             )
         ),
