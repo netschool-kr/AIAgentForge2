@@ -111,12 +111,18 @@ class DocumentState(BaseState):
                 self.upload_progress[filename] = 66
                 yield
 
-                # *** 중요: 버킷 이름을 'document-files'로 변경 (밑줄(_) 대신 하이픈(-) 사용) ***
                 storage_response = supabase_client.storage.from_('document-files').upload(
-                    f"{collection_id}/{filename}",
+                    f"{auth_state.user.id}/{filename}",  # 변경: collection_id → auth_state.user.id (UUID)
                     upload_data,
                     {'content-type': file.content_type or 'application/octet-stream'}
                 )
+
+                # # *** 중요: 버킷 이름을 'document-files'로 변경 (밑줄(_) 대신 하이픈(-) 사용) ***
+                # storage_response = supabase_client.storage.from_('document-files').upload(
+                #     f"{collection_id}/{filename}",
+                #     upload_data,
+                #     {'content-type': file.content_type or 'application/octet-stream'}
+                # )
                 if not storage_response.full_path:
                     # Supabase 스토리지 응답이 JSON 형태일 수 있으므로 텍스트로 변환
                     error_detail = storage_response.text
