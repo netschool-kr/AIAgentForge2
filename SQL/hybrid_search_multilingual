@@ -1,0 +1,57 @@
+CREATE OR REPLACE FUNCTION hybrid_search_multilingual(
+    query_text TEXT,
+    query_embedding VECTOR(1536),
+    match_count INT,
+    rrf_k INT = 60
+)
+RETURNS TABLE (
+    id UUID,
+    content TEXT,
+    document_id UUID,
+    collection_id UUID,
+    owner_id UUID,
+    rrf_score FLOAT
+)
+LANGUAGE sql
+AS $$
+WITH semantic_search AS (
+    -- 1. 의미 검색 (Vector Search)
+    -- 입력된 쿼리 임베딩과 코사인 유사도가 가장 높은 문서를 찾습니다.
+    SELECT
+        ds.id,
+        rank() OVER (ORDER BY ds.embedding <=> query_embedding) as rank
+    FROM document_sections ds
+    ORDER BY ds.embedding <=> query_embedding
+    LIMIT match_count
+),
+keyword_search AS (
+    -- 2. 키워드 검색 (Full-Text Search)
+    -- PGroonga를 사용하여 쿼리 텍스트와 일치하는 문서를 찾습니다.
+    SELECT
+        ds.id,
+        rank() OVER (ORDER BY pgroonga_score(ds.tableoid, ds.ctid) DESC) as rank
+    FROM document_sections ds
+    WHERE ds.content &@~ query_text
+    ORDER BY pgroonga_score(ds.tableoid, ds.ctid) DESC
+    LIMIT match_count
+)
+-- 3. 결과 통합 및 RRF 점수 계산
+-- 두 검색 결과를 FULL OUTER JOIN으로 결합하여 한쪽에만 있는 결과도 포함시킵니다.
+-- RRF 공식을 적용하여 최종 점수를 계산하고 순위를 매깁니다.
+SELECT
+    ds.id,
+    ds.content,
+    ds.document_id,
+    d.collection_id,
+    ds.owner_id,
+    (
+        COALESCE(1.0 / (rrf_k + ss.rank), 0.0) +
+        COALESCE(1.0 / (rrf_k + ks.rank), 0.0)
+    ) AS rrf_score
+FROM semantic_search ss
+FULL OUTER JOIN keyword_search ks ON ks.id = ss.id
+JOIN document_sections ds ON ds.id = COALESCE(ss.id, ks.id)
+JOIN documents d ON d.id = ds.document_id
+ORDER BY rrf_score DESC
+LIMIT match_count;
+$$;

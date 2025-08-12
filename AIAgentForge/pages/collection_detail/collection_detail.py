@@ -67,12 +67,29 @@ def document_list() -> rx.Component:
 
 @rx.page(
     route="/collections/[collection_id]",
-    on_load=[AuthState.check_auth, DocumentState.load_documents_on_page_load]
+    on_load=[AuthState.check_auth, DocumentState.load_documents_on_page_load]#, lambda: DocumentState.set_process_document(True)]
 )
 def collection_detail_page() -> rx.Component:
     """컬렉션 상세 페이지 UI (업로드 기능 포함)"""
     return rx.container(
-        rx.heading("문서 관리", size="5", margin_bottom="1em"),
+        rx.heading(f"컬렉션: {DocumentState.collection_name}", size="5", margin_bottom="1em"),
+        
+        rx.hstack(
+            # rx.checkbox(
+            #     "Upload",
+            #     is_checked=DocumentState.upload_document,
+            #     default_checked=True,
+            #     on_change=DocumentState.toggle_upload_document,
+            # ),
+            # rx.checkbox(
+            #     "Process",
+            #     is_checked=DocumentState.process_document,
+            #     default_checked=True,
+            #     on_change=DocumentState.toggle_process_document,
+            # ),
+            spacing="4",
+            margin_bottom="1em",
+        ),
         
         rx.upload(
             rx.vstack(
