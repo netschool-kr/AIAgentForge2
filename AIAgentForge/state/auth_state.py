@@ -23,55 +23,61 @@ class AuthState(BaseState):
 
     async def check_auth(self):
         """
-        Verifies authentication on page load for protected routes.
-        This is the single source of truth for auth status.
-        It runs every time a protected page is loaded.
+        페이지 로드 시 인증을 확인하고, 필요 시 토큰을 자동으로 갱신합니다.
+        "실패 시 갱신(Refresh on Failure)" 전략을 사용합니다.
         """
-        # If there is no access token in the cookie, the user is not logged in.
+        # 1. 쿠키에 access_token이 없으면 명백히 비로그인 상태입니다.
         if not self.access_token:
-            # If server state is out of sync, reset it.
+            # 만약 서버 상태가 동기화되지 않았다면(예: is_authenticated가 True), 초기화합니다.
             if self.is_authenticated:
-                self.is_authenticated = False
-                self.user = None
-            yield rx.redirect("/login")
-            return
+                self._reset_auth_state()
+            return rx.redirect("/login")
 
         try:
-            # The token exists. Verify its validity by fetching the user from Supabase.
-            response = self.supabase_client.auth.get_user(self.access_token)
-            self.user = response.user
-            self.is_authenticated = True
-            yield
-        except Exception:
-            # 3. get_user 실패: access_token이 만료되었거나 유효하지 않습니다.
-            # 이제 refresh_token으로 세션 갱신을 시도합니다.
-            if not self.refresh_token:
-                # 갱신 토큰조차 없으면 완전히 로그아웃 처리합니다.
-                self.access_token = ""
-                self.is_authenticated = False
-                self.user = None
-                yield rx.redirect("/login")
-                return
-            
-            try:
-                # 4. refresh_token으로 세션 갱신을 시도합니다.
-                response = self.supabase_client.auth.refresh_session(self.refresh_token)
-                
-                # 5. 세션 갱신 성공: 새로운 토큰과 사용자 정보로 상태를 업데이트합니다.
-                self.access_token = response.session.access_token
-                self.refresh_token = response.session.refresh_token
+            # 2. access_token의 유효성을 Supabase 서버에 직접 확인합니다.
+            response = await self.supabase_client.auth.get_user(self.access_token)
+            if response.user:
                 self.user = response.user
                 self.is_authenticated = True
                 yield
+            else:
+                # get_user가 user를 반환하지 않는 예외적인 경우
+                raise Exception("User not found with the given token.")
+
+        except Exception:
+            # 3. get_user 실패: access_token이 만료되었거나 유효하지 않다는 의미입니다.
+            # 이제 refresh_token으로 세션 갱신을 시도합니다.
+            if not self.refresh_token:
+                # 갱신 토큰조차 없으면 완전히 로그아웃 처리합니다.
+                self._reset_auth_state()
+                return rx.redirect("/login")
+
+            try:
+                # 4. refresh_token으로 새로운 세션(access_token + refresh_token)을 요청합니다.
+                response = await self.supabase_client.auth.refresh_session(self.refresh_token)
+
+                # 5. 세션 갱신 성공: 새로운 토큰들로 상태를 업데이트합니다 (토큰 로테이션).
+                if response.session:
+                    self.access_token = response.session.access_token
+                    self.refresh_token = response.session.refresh_token
+                    self.user = response.user
+                    self.is_authenticated = True
+                    yield
+                else:
+                    raise Exception("Session refresh did not return a session.")
+
             except Exception:
                 # 6. 세션 갱신 실패: refresh_token도 만료되었거나 유효하지 않습니다.
                 # 모든 인증 정보를 지우고 로그인 페이지로 보냅니다.
-                self.access_token = ""
-                self.refresh_token = ""
-                self.is_authenticated = False
-                self.user = None
+                self._reset_auth_state()
                 yield rx.redirect("/login")
 
+    def _reset_auth_state(self):
+        """인증 관련 모든 상태를 깨끗하게 초기화하는 헬퍼 메서드."""
+        self.access_token = ""
+        self.refresh_token = ""
+        self.is_authenticated = False
+        self.user = None
 
     async def handle_login(self, form_data: dict):
         """Handles the login form submission."""

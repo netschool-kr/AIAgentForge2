@@ -2,6 +2,7 @@
 import reflex as rx
 from ...state.document_state import DocumentState
 from ...state.auth_state import AuthState
+from AIAgentForge.components.navbar import navbar  # Navbar 임포트 추가
 
 def render_upload_progress() -> rx.Component:
     """각 파일의 업로드 진행 상황을 동적으로 렌더링합니다."""
@@ -72,6 +73,7 @@ def document_list() -> rx.Component:
 def collection_detail_page() -> rx.Component:
     """컬렉션 상세 페이지 UI (업로드 기능 포함)"""
     return rx.container(
+        navbar(),
         rx.heading(f"컬렉션: {DocumentState.collection_name}", size="5", margin_bottom="1em"),
         
         rx.hstack(

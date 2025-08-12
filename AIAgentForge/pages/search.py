@@ -8,6 +8,7 @@ UI는 상태(State)의 함수라는 선언적 패러다임을 따릅니다.
 import reflex as rx
 import asyncio
 from typing import List, Dict, Any
+from AIAgentForge.components.navbar import navbar  # Navbar 임포트 추가
 
 # 검색 결과 항목을 위한 타입 정의
 SearchResult = Dict[str, Any]
@@ -84,6 +85,7 @@ def search_page() -> rx.Component:
     """
     return rx.container(
         rx.vstack(
+            navbar(),  # Navbar 추가
             rx.heading("하이브리드 검색 엔진", size="7", align="center", margin_bottom="1em"),
             
             # 검색 입력창과 버튼

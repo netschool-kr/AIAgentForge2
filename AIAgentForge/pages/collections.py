@@ -2,6 +2,7 @@
 import reflex as rx
 from ..state.collection_state import CollectionState
 from ..state.auth_state import AuthState
+from AIAgentForge.components.navbar import navbar  # Navbar 임포트 추가
 
 def collection_row(collection: dict) -> rx.Component:
     """테이블의 각 행을 렌더링하고 상세 페이지로 연결하는 컴포넌트 함수"""
@@ -28,6 +29,7 @@ def collections_page() -> rx.Component:
     return rx.cond(
         AuthState.is_authenticated,
         rx.container(
+            navbar(),
             rx.heading("컬렉션 관리", size="5"),
             rx.form.root(
                 rx.hstack(
