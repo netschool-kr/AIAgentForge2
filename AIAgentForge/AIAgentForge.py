@@ -11,6 +11,7 @@ from AIAgentForge.pages.collections import collections_page # 새로 만든 페�
 from AIAgentForge.state.collection_state import CollectionState  # CollectionState import 추가
 from AIAgentForge.pages.collection_detail.collection_detail import collection_detail_page # 상세 페이지 import
 from AIAgentForge.pages.search import search_page 
+from AIAgentForge.pages.admin_page import admin_page
 
 load_dotenv()  # .env 파일에서 환경 변수를 로드합니다.
 
@@ -31,3 +32,5 @@ app.add_page(
 app.add_page(login_page, route="/login")
 app.add_page(signup_page, route="/signup")
 app.add_page(search_page, route="/search")
+
+app.add_page(admin_page, route="/admin", on_load=AuthState.check_admin)

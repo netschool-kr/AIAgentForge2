@@ -30,26 +30,23 @@ class AuthState(BaseState):
         if self.is_authenticated and self.user and self.user.app_metadata:
             return self.user.app_metadata.get("role", "user")
         return "guest"
-    
+
     async def check_auth(self):
         """
-        Verifies authentication on page load for protected routes.
-        This is the single source of truth for auth status.
-        It runs every time a protected page is loaded.
+        페이지 로드 시 인증을 확인하고, 필요 시 토큰을 자동으로 갱신합니다.
+        "실패 시 갱신(Refresh on Failure)" 전략을 사용합니다.
         """
-        # If there is no access token in the cookie, the user is not logged in.
+        # 1. 쿠키에 access_token이 없으면 명백히 비로그인 상태입니다.
         if not self.access_token:
-            # If server state is out of sync, reset it.
+            # 만약 서버 상태가 동기화되지 않았다면(예: is_authenticated가 True), 초기화합니다.
             if self.is_authenticated:
-                self.is_authenticated = False
-                self.user = None
+                self._reset_auth_state()
             yield rx.redirect("/login")
-            return
 
         try:
-            # The token exists. Verify its validity by fetching the user from Supabase.
-            response = self.supabase_client.auth.get_user(self.access_token)
-            if response and response.user:
+            # 2. access_token의 유효성을 Supabase 서버에 직접 확인합니다.
+            response = await self.supabase_client.auth.get_user(self.access_token)
+            if response.user:
                 self.user = response.user
                 self.is_authenticated = True
                 yield
@@ -84,26 +81,14 @@ class AuthState(BaseState):
                 # 모든 인증 정보를 지우고 로그인 페이지로 보냅니다.
                 self._reset_auth_state()
                 yield rx.redirect("/login")
-                
-    async def check_admin(self):
-        """관리자 페이지 접근을 위한 인증 및 권한을 확인합니다."""
-        # 1단계: 사용자가 로그인했는지 먼저 확인합니다.
-        # check_auth의 이벤트를 체이닝하여 yield합니다. (리디렉션이 발생하면 여기서 중단됨)
-        async for event in self.check_auth():
-            yield event
 
-        # 2단계: 로그인한 사용자의 역할이 'admin'이 아닌 경우, 메인 페이지로 리디렉션합니다.
-        if self.role != "admin":
-            yield rx.redirect("/")
-        return  # 리디렉션 후 불필요한 실행 방지
-            
     def _reset_auth_state(self):
         """인증 관련 모든 상태를 깨끗하게 초기화하는 헬퍼 메서드."""
         self.access_token = ""
         self.refresh_token = ""
         self.is_authenticated = False
         self.user = None
-        
+
     async def handle_login(self, form_data: dict):
         """Handles the login form submission."""
         self.is_loading = True
