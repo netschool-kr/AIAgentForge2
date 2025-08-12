@@ -21,6 +21,16 @@ class AuthState(BaseState):
         """Returns the user's email if they are logged in, otherwise an empty string."""
         return self.user.email if self.user else ""
 
+    @rx.var
+    def role(self) -> str:
+        """
+        인증된 사용자의 역할을 반환하는 계산 변수입니다.
+        역할이 없거나 비로그인 상태일 경우 'guest'를 반환합니다.
+        """
+        if self.is_authenticated and self.user and self.user.app_metadata:
+            return self.user.app_metadata.get("role", "user")
+        return "guest"
+
     async def check_auth(self):
         """
         페이지 로드 시 인증을 확인하고, 필요 시 토큰을 자동으로 갱신합니다.
@@ -31,7 +41,7 @@ class AuthState(BaseState):
             # 만약 서버 상태가 동기화되지 않았다면(예: is_authenticated가 True), 초기화합니다.
             if self.is_authenticated:
                 self._reset_auth_state()
-            return rx.redirect("/login")
+            yield rx.redirect("/login")
 
         try:
             # 2. access_token의 유효성을 Supabase 서버에 직접 확인합니다.
