@@ -13,6 +13,7 @@ RETURNS TABLE (
     rrf_score FLOAT
 )
 LANGUAGE sql
+SECURITY INVOKER
 AS $$
 WITH semantic_search AS (
     -- 1. 의미 검색 (Vector Search)

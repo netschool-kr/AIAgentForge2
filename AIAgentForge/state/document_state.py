@@ -1,5 +1,4 @@
 # AIAgentForge/state/document_state.py
-import base64
 import reflex as rx
 from .base import BaseState
 from .auth_state import AuthState
@@ -8,12 +7,8 @@ from dotenv import load_dotenv
 from postgrest import SyncPostgrestClient
 import asyncio
 from supabase import create_client, Client
-import io # For handling file bytes
 from reflex.vars import Var
 from typing import List
-import PyPDF2# PDF 처리를 위한 라이브러리 
-import docx # DOCX 처리를 위한 라이브러리
-from langchain.text_splitter import RecursiveCharacterTextSplitter # 텍스트 분할을 위한 LangChain 라이브러리 
 from ..utils.text_extractor import extract_text_from_file
 from ..utils.chunker import chunk_text
 from ..utils.embedder import generate_embeddings
@@ -169,9 +164,6 @@ class DocumentState(BaseState):
 
                 storage_path = f"{user_id}/{collection_id}/{filename}"
                 storage_response = supabase_client.storage.from_(BUCKET_NAME).upload(
-                    # path=storage_path,
-                    # file=file_content,
-                    # file_options={'content-type': content_type or 'application/octet-stream'}
                     f"{storage_path}", 
                     file_content,
                     {'content-type': content_type or 'application/octet-stream'}
@@ -200,9 +192,7 @@ class DocumentState(BaseState):
                 yield
                     
                 # process_document:
-                print(" calling ProcessDocument")
-                # DocumentState.ProcessDocument(supabase_client, filename, collection_id)
-                # yield DocumentState.ProcessDocument(filename, collection_id)
+                print(" Process Document")
                 
                 self.upload_progress[filename] = 30                
                 self.upload_status[filename] = "Text 추출 중"
@@ -240,7 +230,6 @@ class DocumentState(BaseState):
                         "document_id": document_id,
                         "content": chunk['text'],
                         "embedding": embedding,
-                        # "document_name": filename,
                     }
                     for chunk, embedding in zip(chunks, embeddings)
                 ]
@@ -269,7 +258,7 @@ class DocumentState(BaseState):
             self.alert_message = f"{successful_uploads} / {len(files)}개의 파일이 성공적으로 업로드되었습니다."
             self.show_alert = True
             # 컬렉션 상세 페이지에 문서 목록이 있다면 새로고침
-            # yield DocumentState.load_documents_on_page_load
+            yield DocumentState.load_documents_on_page_load
         
         await asyncio.sleep(5)
         self.is_uploading = False
