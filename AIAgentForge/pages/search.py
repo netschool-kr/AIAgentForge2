@@ -9,53 +9,11 @@ import reflex as rx
 import asyncio
 from typing import List, Dict, Any
 from AIAgentForge.components.navbar import navbar  # Navbar 임포트 추가
-
+from AIAgentForge.state.search_state import SearchState
+from AIAgentForge.state.document_state import DocumentState
 # 검색 결과 항목을 위한 타입 정의
 SearchResult = Dict[str, Any]
 
-class SearchState(rx.State):
-    """
-    검색 페이지의 모든 상태와 이벤트 핸들러를 관리하는 클래스.
-    """
-    # 검색어 입력을 위한 변수
-    search_query: str = ""
-    
-    # 검색 결과를 저장할 리스트. 각 항목은 딕셔너리 형태입니다.
-    search_results: List[SearchResult] = []
-    
-    # 검색 진행 상태(로딩 여부)를 나타내는 변수
-    is_loading: bool = False
-
-    async def handle_search(self):
-        """
-        '검색' 버튼 클릭 시 실행되는 비동기 이벤트 핸들러.
-        """
-        # 검색어가 비어있으면 아무 작업도 수행하지 않음
-        if not self.search_query.strip():
-            return
-
-        # 1. 로딩 상태 시작
-        self.is_loading = True
-        yield
-
-        # 2. 실제 검색 로직 수행 (여기서는 2초 대기로 시뮬레이션)
-        # 실제 애플리케이션에서는 이 부분에 Supabase DB에 RPC를 호출하는 코드가 들어갑니다.
-        await asyncio.sleep(2)
-
-        # 3. 검색 결과 생성 (시뮬레이션용 목업 데이터)
-        # 실제로는 DB 조회 결과가 이 자리에 들어옵니다.
-        if "reflex" in self.search_query.lower():
-            self.search_results = [
-                {"id": 1, "rrf_score": 0.95, "content": "Reflex는 순수 Python으로 웹 앱을 빌드할 수 있는 프레임워크입니다."},
-                {"id": 2, "rrf_score": 0.87, "content": "Reflex의 상태 관리는 UI를 자동으로 업데이트하여 개발을 간소화합니다."},
-                {"id": 3, "rrf_score": 0.82, "content": "rx.foreach와 rx.cond를 사용하면 동적이고 조건부적인 UI를 쉽게 만들 수 있습니다."},
-            ]
-        else:
-            self.search_results = [] # 일치하는 결과가 없으면 빈 리스트로 설정
-
-        # 4. 로딩 상태 종료
-        self.is_loading = False
-        yield
 
 def render_search_result(result: SearchResult) -> rx.Component:
     """
@@ -86,7 +44,7 @@ def search_page() -> rx.Component:
     return rx.container(
         rx.vstack(
             navbar(),  # Navbar 추가
-            rx.heading("하이브리드 검색 엔진", size="7", align="center", margin_bottom="1em"),
+            rx.heading(f"하이브리드 검색 엔진   ({DocumentState.collection_name})", size="7", align="center", margin_bottom="1em"),
             
             # 검색 입력창과 버튼
             rx.hstack(

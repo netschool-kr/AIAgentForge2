@@ -13,7 +13,7 @@ def navbar() -> rx.Component:
             rx.hstack(
                 rx.link("대시보드", href="/"),
                 rx.link("컬렉션", href="/collections"), # 컬렉션 페이지 링크 추가
-                rx.link("검색", href="/search"),
+                #rx.link("검색", href="/search"),
                 rx.link("채팅", href="/chat"),
                 rx.cond(
                     AuthState.role == "admin",

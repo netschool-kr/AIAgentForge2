@@ -29,6 +29,7 @@ class DocumentState(BaseState):
     
     documents: list[dict] = []
     collection_name: str = ""
+    collect_id: str=""
     is_loading: bool = False
     is_uploading: bool = False
     # upload_document: bool = True
@@ -73,12 +74,15 @@ class DocumentState(BaseState):
 
     async def load_documents_on_page_load(self):
         collection_id = self.router.url.split('/')[-1]
+        
         if not collection_id:
             self.alert_message = "컬렉션 ID를 찾을 수 없습니다."
             self.show_alert = True
             return
 
         self.is_loading = True
+        self.collection_id = collection_id
+        
         yield
         try:
             client = await self._get_authenticated_client()

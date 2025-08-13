@@ -12,11 +12,18 @@ from AIAgentForge.state.collection_state import CollectionState  # CollectionSta
 from AIAgentForge.pages.collection_detail.collection_detail import collection_detail_page # 상세 페이지 import
 from AIAgentForge.pages.search import search_page 
 from AIAgentForge.pages.admin_page import admin_page
+from fastapi import FastAPI
+from AIAgentForge.api.v1_router import api_v1_router
 
 load_dotenv()  # .env 파일에서 환경 변수를 로드합니다.
+# 1. 확장할 FastAPI 앱 인스턴스를 생성합니다.
+fastapi_app = FastAPI(title="AIAgentForge API")
+fastapi_app.include_router(api_v1_router)
 
 # 애플리케이션 인스턴스를 생성합니다.
-app = rx.App()
+app = rx.App(
+    api_transformer=fastapi_app,
+)
 
 # 보호된 라우트
 app.add_page(dashboard_page, route="/", on_load=AuthState.check_auth)  
@@ -34,3 +41,6 @@ app.add_page(signup_page, route="/signup")
 app.add_page(search_page, route="/search")
 
 app.add_page(admin_page, route="/admin", on_load=AuthState.check_admin)
+
+
+

@@ -74,8 +74,14 @@ def collection_detail_page() -> rx.Component:
     """컬렉션 상세 페이지 UI (업로드 기능 포함)"""
     return rx.container(
         navbar(),
-        rx.heading(f"컬렉션: {DocumentState.collection_name}", size="5", margin_bottom="1em"),
-        
+        rx.hstack(
+            rx.heading(f"컬렉션: {DocumentState.collection_name}", size="5", margin_bottom="1em"),
+            rx.spacer(),  # 이 부분을 추가하세요
+            rx.link("검색", href="/search", size="5", margin_bottom="1em"),
+            rx.spacer(), 
+            rx.spacer(), 
+            #width="80%",  # hstack이 전체 너비를 차지하도록 설정
+        ),        
         rx.hstack(
             # rx.checkbox(
             #     "Upload",
