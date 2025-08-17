@@ -12,13 +12,27 @@ from AIAgentForge.state.collection_state import CollectionState  # CollectionSta
 from AIAgentForge.pages.collection_detail.collection_detail import collection_detail_page # 상세 페이지 import
 from AIAgentForge.pages.search import search_page 
 from AIAgentForge.pages.admin_page import admin_page
+from AIAgentForge.pages.youtube import youtube_page
 from fastapi import FastAPI
 from AIAgentForge.api.v1_router import api_v1_router
+from uuid import uuid4
+
+def setup_langchain_tracing():
+    """LangSmith 추적을 위한 환경 변수를 설정합니다."""
+    if os.environ.get("LANGCHAIN_API_KEY"):
+        unique_id = uuid4().hex[0:8]
+        os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        os.environ["LANGCHAIN_PROJECT"] = f"Reflex YouTube Translator - {unique_id}"
+        os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+        print("✅ LangSmith 추적이 활성화되었습니다.")
+    else:
+        print("ℹ️ LangSmith 추적을 사용하려면 LANGCHAIN_API_KEY를 설정하세요.")
 
 load_dotenv()  # .env 파일에서 환경 변수를 로드합니다.
 # 1. 확장할 FastAPI 앱 인스턴스를 생성합니다.
 fastapi_app = FastAPI(title="AIAgentForge API")
 fastapi_app.include_router(api_v1_router)
+setup_langchain_tracing()
 
 # 애플리케이션 인스턴스를 생성합니다.
 app = rx.App(
@@ -39,6 +53,7 @@ app.add_page(
 app.add_page(login_page, route="/login")
 app.add_page(signup_page, route="/signup")
 app.add_page(search_page, route="/search")
+app.add_page(youtube_page, route="/youtube")
 
 app.add_page(admin_page, route="/admin", on_load=AuthState.check_admin)
 

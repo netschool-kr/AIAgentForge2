@@ -38,7 +38,9 @@ class ChatState(BaseState):
         if not self.question.strip():
             return
         # 사용자의 질문을 채팅 기록에 추가합니다.
-        self.chat_history.append(Message(role="user", content=self.question))       # Clear the question input.
+        text = self.question
+        self.chat_history.insert(0, Message(role="user", content=text))        
+        # self.chat_history.append(Message(role="user", content=self.question))       # Clear the question input.
         yield
         
         # Our chatbot has some brains now!
@@ -59,7 +61,8 @@ class ChatState(BaseState):
 
         # Add to the answer as the chatbot responds.
         answer = ""
-        self.chat_history.append(Message(role="assistant", content=answer))
+        self.chat_history.insert(0, Message(role="assistant", content=answer))        
+        # self.chat_history.append(Message(role="assistant", content=answer))
 
         # Yield here to clear the frontend input before continuing.
         yield
@@ -70,7 +73,7 @@ class ChatState(BaseState):
                     # presence of 'None' indicates the end of the response
                     break
                 answer += item.choices[0].delta.content
-                self.chat_history[-1] = (
+                self.chat_history[0] = (
                    Message(role="assistant", content=answer)
                 )
                 yield
