@@ -2,119 +2,146 @@
 import os
 import re
 import reflex as xt
-# youtube_transcript_api 임포트 방식을 표준 형태로 수정
-from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
+from typing import Tuple
+
+# LangChain 및 LLM 관련 라이브러리
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
-# --- Helper Functions (기존 로직) ---
+# 유튜브 자막 추출 라이브러리
+from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
 
-def get_youtube_script(url: str) -> tuple[str, str]:
-    """유튜브 영상 URL에서 자막을 자동으로 감지하고 텍스트를 추출합니다."""
+# --- LLM 및 프롬프트 초기화 ---
+llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
+
+translation_prompt = ChatPromptTemplate.from_messages([
+    ("system", "너는 한국어로 번역하는 번역 전문가야. 다음 내용을 한국어로 번역해줘."),
+    MessagesPlaceholder(variable_name="messages"),
+])
+
+summary_prompt = ChatPromptTemplate.from_messages([
+    ("system", """
+당신은 전문적인 요약가입니다. 사용자가 제공하는 전체 텍스트를 아래 형식과 지침에 따라 요약하십시오.
+
+[출력 포맷]
+목차
+1. ...
+2. ...
+
+1. [항목 제목]
+· 핵심 요점 1
+· 핵심 요점 2
+
+2. [항목 제목]
+· 핵심 요점 1
+...
+    """),
+    MessagesPlaceholder(variable_name="messages"),
+])
+
+translation_chain = translation_prompt | llm
+summary_chain = summary_prompt | llm
+
+# --- Helper Functions ---
+
+def get_script_from_youtube(url: str) -> Tuple[str, str]:
+    """유튜브 URL에서 우선순위에 따라 자막 텍스트와 언어 코드를 추출합니다."""
     match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11})", url)
     if not match:
         raise ValueError("유효한 유튜브 영상 URL이 아닙니다.")
     video_id = match.group(1)
-
-    # 인스턴스 생성 후 새로운 메서드(fetch, list) 사용으로 수정
     api = YouTubeTranscriptApi()
-    
-    # 사용 가능한 자막 목록을 가져와 언어 코드 확인
+    # 오류 수정을 위해 클래스를 인스턴스화한 후 메서드를 호출합니다.
+    # 사용자가 제공한 코드 내용을 반영하여 수정합니다.
     transcript_list = api.list(video_id)
     
-    # TranscriptList에서 사용 가능한 language_codes 추출
     language_codes = [t.language_code for t in transcript_list]
     
-    detected_language_code = "en" # 기본값 설정
+    found_transcript = None
     try:
         # 수동 자막 우선 탐색
         found_transcript = transcript_list.find_manually_created_transcript(language_codes)
-        detected_language_code = found_transcript.language_code
     except NoTranscriptFound:
         # 수동 자막이 없으면 자동 생성 자막 탐색
         try:
             found_transcript = transcript_list.find_generated_transcript(language_codes)
-            detected_language_code = found_transcript.language_code
         except NoTranscriptFound:
-             # 어떤 자막도 찾지 못한 경우, 기본값을 사용
-             pass
-        else:
-            # 자동 생성 자막을 가져옴
-            transcript = found_transcript.fetch()
-    else:
-        # 수동 자막을 가져옴
-        transcript = found_transcript.fetch()
+             # 어떤 자막도 찾지 못한 경우
+             raise TranscriptsDisabled(video_id)
 
-    # 만약 자막을 찾지 못했다면, 기본 fetch 시도
-    if 'transcript' not in locals():
-        transcript = api.fetch(video_id)
+    if not found_transcript:
+        raise TranscriptsDisabled(video_id)
 
-    full_script = " ".join(entry.text for entry in transcript).strip()
+    transcript_data = found_transcript.fetch()
+    detected_language_code = found_transcript.language_code
+    
+    full_script = " ".join(entry.text for entry in transcript_data).strip()
     return full_script, detected_language_code
 
-# --- Reflex State (애플리케이션의 상태 관리) ---
+
+# --- Reflex State ---
 
 class YoutubeState(xt.State):
-    """웹 앱의 상태와 이벤트 핸들러를 관리합니다."""
+    """웹 앱의 상태와 전체 워크플로우를 관리합니다."""
     youtube_url: str = ""
     original_script: str = ""
     translated_script: str = ""
+    total_summary: str = "" # 요약 결과를 저장할 변수 추가
     source_language: str = ""
+    
     is_processing: bool = False
+    processing_status: str = "" # 현재 처리 단계를 표시할 변수
     error_message: str = ""
 
     async def process_video(self):
-        """사용자 요청을 받아 자막 추출 및 번역을 수행하는 이벤트 핸들러."""
+        """URL을 받아 [추출 -> 번역 -> 요약] 워크플로우를 실행합니다."""
         if not self.youtube_url.strip():
             self.error_message = "유튜브 URL을 입력해주세요."
             return
 
-        # 이전 상태 초기화 및 처리 시작
+        # --- 초기화 ---
         self.is_processing = True
         self.error_message = ""
-        self.original_script = ""
-        self.translated_script = ""
-        self.source_language = ""
+        self.original_script = self.translated_script = self.total_summary = ""
         yield
 
         try:
-            # 1. 자막 추출
-            script, lang_code = get_youtube_script(self.youtube_url)
+            # --- 1. 자막 추출 ---
+            self.processing_status = "자막 추출 중..."
+            yield
+            script, lang_code = get_script_from_youtube(self.youtube_url)
             self.original_script = script
             
-            language_map = {
-                'en': 'English', 'ja': 'Japanese', 'es': 'Spanish', 'fr': 'French',
-                'de': 'German', 'ko': 'Korean', 'zh-Hans': 'Simplified Chinese',
-            }
-            source_language_name = language_map.get(lang_code, lang_code)
-            self.source_language = source_language_name
+            language_map = {'en': 'English', 'ja': 'Japanese', 'es': 'Spanish', 'fr': 'French'}
+            self.source_language = language_map.get(lang_code, lang_code)
+
+            # --- 2. 번역 (한국어가 아닐 경우) ---
+            script_to_summarize = ""
+            if lang_code == 'ko':
+                self.translated_script = "원문이 한국어이므로 번역을 건너뜁니다."
+                script_to_summarize = self.original_script
+                yield
+            else:
+                self.processing_status = "한국어로 번역 중..."
+                yield
+                request = HumanMessage(content=self.original_script)
+                async for chunk in translation_chain.astream({"messages": [request]}):
+                    self.translated_script += chunk.content
+                    script_to_summarize += chunk.content
+                    yield
+            
+            # --- 3. 요약 ---
+            self.processing_status = "내용 요약 중..."
             yield
-
-            # 2. LLM을 이용한 번역 (스트리밍)
-            if not os.environ.get("OPENAI_API_KEY"):
-                raise ValueError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
-
-            # 시스템 프롬프트를 한국어로 명확하게 변경
-            system_prompt = f"당신은 전문 번역가입니다. 다음 '{source_language_name}' 텍스트를 한국어로 번역해주세요."
-            translation_prompt = ChatPromptTemplate.from_messages([
-                ("system", system_prompt),
-                MessagesPlaceholder(variable_name="messages"),
-            ])
-            llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
-            chain = translation_prompt | llm
-            
-            request_message = HumanMessage(content=self.original_script)
-            
-            async for chunk in chain.astream({"messages": [request_message]}):
-                self.translated_script += chunk.content
+            request = HumanMessage(content=script_to_summarize)
+            async for chunk in summary_chain.astream({"messages": [request]}):
+                self.total_summary += chunk.content
                 yield
 
-        except (ValueError, NoTranscriptFound, TranscriptsDisabled) as e:
-            self.error_message = f"자막 처리 오류: {e}"
         except Exception as e:
-            self.error_message = f"알 수 없는 오류가 발생했습니다: {e}"
+            self.error_message = f"오류 발생: {e}"
         finally:
-            # 처리 종료
             self.is_processing = False
+            self.processing_status = ""
             yield

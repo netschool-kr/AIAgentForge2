@@ -16,6 +16,7 @@ def navbar() -> rx.Component:
                 #rx.link("검색", href="/search"),
                 rx.link("채팅", href="/chat"),
                 rx.link("유튜브", href="/youtube"),
+                rx.link("블로그", href="/blog"),
                 rx.cond(
                     AuthState.role == "admin",
                     rx.link("관리자 패널", href="/admin"),
