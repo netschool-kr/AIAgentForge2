@@ -6,19 +6,18 @@ UI는 상태(State)의 함수라는 선언적 패러다임을 따릅니다.
 """
 
 import reflex as rx
-import asyncio
-from typing import List, Dict, Any
-from AIAgentForge.components.navbar import navbar  # Navbar 임포트 추가
+from typing import Dict, Any
+from AIAgentForge.components.navbar import navbar
 from AIAgentForge.state.search_state import SearchState
 from AIAgentForge.state.document_state import DocumentState
+
 # 검색 결과 항목을 위한 타입 정의
 SearchResult = Dict[str, Any]
-
 
 def render_search_result(result: SearchResult) -> rx.Component:
     """
     개별 검색 결과를 표시하는 카드 컴포넌트를 렌더링하는 함수.
-    rx.foreach의 render_fn으로 사용됩니다.
+    LLM 답변의 근거가 된 소스 문서를 보여주기 위해 사용됩니다.
     """
     return rx.card(
         rx.vstack(
@@ -43,25 +42,29 @@ def search_page() -> rx.Component:
     """
     return rx.container(
         rx.vstack(
-            navbar(),  # Navbar 추가
-            rx.heading(f"하이브리드 검색 엔진   ({DocumentState.collection_name})", size="7", align="center", margin_bottom="1em"),
+            navbar(),
+            rx.heading(f"하이브리드 검색 엔진 ({DocumentState.collection_name})", size="7", align="center", margin_bottom="1em"),
             
-            # 검색 입력창과 버튼
-            rx.hstack(
-                rx.input(
-                    value=SearchState.search_query,
-                    on_change=SearchState.set_search_query,
-                    placeholder="검색어를 입력하세요...",
-                    size="3",
-                    flex_grow=1,
+            # 검색 입력창과 버튼을 form으로 감싸서 Enter 키 입력을 처리합니다.
+            rx.form(
+                rx.hstack(
+                    rx.input(
+                        value=SearchState.search_query,
+                        on_change=SearchState.set_search_query,
+                        placeholder="질문을 입력하세요...",
+                        size="3",
+                        flex_grow=1,
+                    ),
+                    rx.button(
+                        "검색",
+                        is_loading=SearchState.is_loading,
+                        size="3",
+                        type_="submit",  # 버튼 타입을 'submit'으로 설정
+                    ),
+                    spacing="2",
+                    width="100%",
                 ),
-                rx.button(
-                    "검색",
-                    on_click=SearchState.handle_search,
-                    is_loading=SearchState.is_loading,
-                    size="3",
-                ),
-                spacing="2",
+                on_submit=SearchState.handle_search,  # form 제출 시 handle_search 호출
                 width="100%",
             ),
 
@@ -73,24 +76,44 @@ def search_page() -> rx.Component:
                 # 로딩 중일 때: 스피너 표시
                 rx.center(rx.spinner(size="3"), width="100%"),
                 # 로딩이 아닐 때: 결과 표시
-                rx.cond(
-                    SearchState.search_results,
-                    # 결과가 있을 때: rx.foreach로 결과 목록 렌더링
-                    rx.vstack(
-                        rx.foreach(
-                            SearchState.search_results,
-                            render_search_result,
+                rx.vstack(
+                    # LLM 답변 표시
+                    rx.cond(
+                        SearchState.llm_answer,
+                        rx.vstack(
+                            rx.heading("답변", size="5"),
+                            rx.card(
+                                rx.markdown(SearchState.llm_answer),
+                                width="100%"
+                            ),
+                            align="start",
+                            width="100%"
                         ),
-                        spacing="4",
-                        width="100%",
+                        # 초기 메시지 표시 (LLM 답변이 아직 없을 때)
+                        rx.center(
+                            rx.text("질문을 입력하면 문서 기반의 답변을 생성합니다.", color_scheme="gray"),
+                            width="100%",
+                            height="10em"
+                        ),
                     ),
-                    # 결과가 없을 때: 메시지 표시
-                    rx.center(
-                        rx.text("검색 결과가 없습니다.", color_scheme="gray"),
-                        width="100%",
-                        height="10em"
+                    
+                    # 근거 문서(소스) 표시
+                    rx.cond(
+                        SearchState.search_results,
+                        rx.vstack(
+                            rx.heading("참고 문서", size="5", margin_top="2em"),
+                            rx.foreach(
+                                SearchState.search_results,
+                                render_search_result,
+                            ),
+                            spacing="4",
+                            width="100%",
+                            align="start"
+                        )
                     ),
-                ),
+                    spacing="5",
+                    width="100%"
+                )
             ),
             spacing="4",
             width="100%",
@@ -99,4 +122,3 @@ def search_page() -> rx.Component:
         padding_x="1em",
         padding_y="2em",
     )
-

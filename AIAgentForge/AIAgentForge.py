@@ -14,6 +14,7 @@ from AIAgentForge.pages.search import search_page
 from AIAgentForge.pages.admin_page import admin_page
 from AIAgentForge.pages.youtube import youtube_page
 from AIAgentForge.pages.blog import blog_page
+from AIAgentForge.pages.research import research_page
 from fastapi import FastAPI
 from AIAgentForge.api.v1_router import api_v1_router
 from uuid import uuid4
@@ -56,6 +57,7 @@ app.add_page(signup_page, route="/signup")
 app.add_page(search_page, route="/search")
 app.add_page(youtube_page, route="/youtube")
 app.add_page(blog_page, route="/blog")
+app.add_page(research_page, route="/research", title="AI Deep Research Agent")
 
 app.add_page(admin_page, route="/admin", on_load=AuthState.check_admin)
 
