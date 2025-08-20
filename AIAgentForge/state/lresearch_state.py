@@ -1,7 +1,8 @@
 # AIAgentForge/state/lresearch_state.py
 
 import reflex as rx
-from AIAgentForge.agents.lresearcher import run_research_agent
+# build_agent_graph를 직접 임포트합니다.
+from AIAgentForge.agents.lresearcher import build_agent_graph
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -18,7 +19,7 @@ class LResearchState(rx.State):
     # 에이전트 실행 여부를 추적하는 변수 (UI 로딩 상태 표시용)
     is_running: bool = False
     
-    # 에이전트 실행 상태 메시지
+    # 에이전트 실행 상태 메시지 (진행 상황을 표시)
     status_message: str = ""
 
     async def start_research(self):
@@ -36,27 +37,48 @@ class LResearchState(rx.State):
         
         # 백그라운드 태스크로 에이전트 실행
         # UI가 멈추는 것을 방지합니다.
-        yield type(self).run_agent_background
+        return type(self).run_agent_background
 
     @rx.event(background=True)
     async def run_agent_background(self):
         """
-        실제 리서치 에이전트 함수를 호출하는 백그라운드 작업.
-        `run_research_agent`는 동기 함수이므로, 그대로 호출합니다.
+        리서치 에이전트 그래프를 단계별로 실행하고 UI 상태를 업데이트합니다.
         """
-        
         try:
-            logging.info(f"run_agent_background 0: '{self.query}'")
-
-            # 동기 함수를 직접 호출
-            report_result = run_research_agent(self.query)
+            async with self:
+                self.status_message = "에이전트 워크플로우를 구성합니다..."
             
-            logging.info(f"run_agent_background 1: '{report_result}'")
-            # 작업이 완료되면 UI를 업데이트하기 위해 프론트엔드 이벤트를 호출
+            # LangGraph 워크플로우를 빌드합니다.
+            graph = build_agent_graph()
+            initial_state = {"query": self.query, "plan": "", "drafts": [], "critiques": [], "report": ""}
+
+            final_state = None
+            # graph.astream()을 사용하여 각 단계를 비동기적으로 순회합니다.
+            # 각 단계의 출력을 스트리밍하여 UI를 실시간으로 업데이트합니다.
+            async for step_output in graph.astream(initial_state):
+                # step_output은 {'node_name': state_update} 형태의 딕셔너리입니다.
+                node_name = list(step_output.keys())[0]
+                
+                # 현재 실행 중인 노드에 따라 상태 메시지를 업데이트합니다.
+                async with self:
+                    if node_name == "planner":
+                        self.status_message = "✅ 1/3: 리서치 계획을 생성 중입니다..."
+                    elif node_name == "researcher":
+                        self.status_message = "✅ 2/3: 웹 검색 및 초안을 작성 중입니다..."
+                    elif node_name == "reporter":
+                        self.status_message = "✅ 3/3: 최종 보고서를 생성 중입니다..."
+                
+                # 마지막 상태를 계속해서 저장합니다.
+                final_state = step_output
+
+            # 최종 결과 추출 및 상태 업데이트
+            # 마지막 노드('reporter')의 결과에서 보고서를 가져옵니다.
+            report_result = final_state['reporter'].get("report", "보고서 생성에 실패했습니다.")
+            
             async with self:
                 self.report = report_result
                 self.is_running = False
-                self.status_message = "리서치가 완료되었습니다."
+                self.status_message = "🎉 리서치가 완료되었습니다."
                 
         except Exception as e:
             async with self:
@@ -64,3 +86,4 @@ class LResearchState(rx.State):
                 self.is_running = False
                 self.status_message = "오류로 인해 리서치가 중단되었습니다."
             logging.error(f"Background task error: {e}")
+

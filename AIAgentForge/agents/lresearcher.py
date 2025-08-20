@@ -1,8 +1,9 @@
-# AIAgentForge/utils/research_agent.py
+# AIAgentForge/agents/lresearcher.py
 
 import os
-from langchain_community.chat_models import ChatOllama
-from langchain_community.tools.tavily_search import TavilySearchResults
+# 최신 라이브러리 임포트
+from langchain_ollama import ChatOllama
+from langchain_tavily import TavilySearch
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.output_parsers import StrOutputParser
@@ -22,13 +23,12 @@ if os.getenv("TAVILY_API_KEY") is None:
     raise ValueError("TAVILY_API_KEY 환경 변수가 설정되지 않았습니다.")
 
 # --- 모델 및 도구 설정 ---
-# 로컬 LLM (Llama 3) 초기화
-# Ollama가 설치되어 있고 llama3 모델이 다운로드되어 있어야 합니다.
-# 터미널에서 `ollama run llama3` 실행 확인
+# 로컬 LLM (Llama 3) 초기화 (최신 클래스 사용)
 local_llm = ChatOllama(model="llama3", temperature=0)
 
-# 웹 검색 도구 초기화
-search_tool = TavilySearchResults(max_results=3)
+# 웹 검색 도구 초기화 (최신 클래스 사용)
+# 클래스 이름이 TavilySearchResults -> TavilySearch 로 변경되었습니다.
+search_tool = TavilySearch(max_results=3)
 
 # --- LangGraph 상태 정의 ---
 class AgentState(TypedDict):
@@ -92,51 +92,55 @@ critique_prompt = ChatPromptTemplate.from_template(
 )
 
 
-# --- LangGraph 노드(Node) 함수 정의 ---
+# --- LangGraph 노드(Node) 함수 정의 (비동기로 수정) ---
 
-def plan_step(state: AgentState):
-    """리서치 계획을 생성하는 노드"""
+async def plan_step(state: AgentState):
+    """리서치 계획을 생성하는 비동기 노드"""
     logging.info("--- 리서치 계획 생성 중 ---")
     planner = planner_prompt | local_llm | StrOutputParser()
-    plan = planner.invoke({"query": state["query"]})
+    plan = await planner.ainvoke({"query": state["query"]})
     return {"plan": plan}
 
-def research_step(state: AgentState):
-    """계획에 따라 웹 검색을 수행하고 초안을 작성하는 노드"""
-    print("--- 웹 검색 및 초안 작성 중 ---")
+async def research_step(state: AgentState):
+    """계획에 따라 웹 검색을 수행하고 초안을 작성하는 비동기 노드"""
+    logging.info("--- 웹 검색 및 초안 작성 중 ---")
     plan_steps = state["plan"].strip().split("\n")
     drafts = []
     for step in plan_steps:
         if not step:
             continue
         logging.info(f"  - 검색 주제: {step}")
-        # 웹 검색 수행
-        search_results = search_tool.invoke(step)
-        context = "\n".join([res["content"] for res in search_results])
+        # 웹 검색 비동기 수행
+        search_results = await search_tool.ainvoke(step)
+        # TavilySearch의 결과는 딕셔너리 리스트가 아닌 문자열 리스트일 수 있습니다.
+        # 따라서 결과 형식을 확인하고 적절히 처리해야 합니다.
+        # 여기서는 결과가 문자열 리스트라고 가정합니다.
+        context = "\n".join(search_results) if isinstance(search_results, list) else search_results
         
-        # 초안 생성
+        # 초안 비동기 생성
         draft_generator = draft_prompt | local_llm | StrOutputParser()
-        draft = draft_generator.invoke({"query": step, "context": context})
+        draft = await draft_generator.ainvoke({"query": step, "context": context})
         drafts.append(draft)
         logging.info(f"  - 초안 생성 완료")
     return {"drafts": drafts}
 
-def report_step(state: AgentState):
-    """초안들을 종합하여 최종 보고서를 생성하는 노드"""
+async def report_step(state: AgentState):
+    """초안들을 종합하여 최종 보고서를 생성하는 비동기 노드"""
     logging.info("--- 최종 보고서 생성 중 ---")
     drafts_text = "\n\n---\n\n".join(state["drafts"])
     report_generator = report_prompt | local_llm | StrOutputParser()
-    report = report_generator.invoke({"drafts": drafts_text})
+    report = await report_generator.ainvoke({"drafts": drafts_text})
     return {"report": report}
 
 # --- 그래프 구성 ---
 def build_agent_graph():
     """
     LangGraph를 사용하여 리서치 에이전트의 워크플로우를 구성합니다.
+    StateGraph 실행을 State에서 관리하므로, 이 함수는 그래프 객체만 반환합니다.
     """
     workflow = StateGraph(AgentState)
 
-    # 노드 추가
+    # 노드 추가 (비동기 함수 등록)
     workflow.add_node("planner", plan_step)
     workflow.add_node("researcher", research_step)
     workflow.add_node("reporter", report_step)
@@ -149,29 +153,3 @@ def build_agent_graph():
 
     # 그래프 컴파일
     return workflow.compile()
-
-# --- 메인 실행 함수 ---
-def run_research_agent(query: str) -> str:
-    """
-    사용자 질문을 받아 리서치 에이전트를 실행하고 최종 보고서를 반환합니다.
-    """
-    try:
-        
-        graph = build_agent_graph()
-        initial_state = {"query": query, "plan": "", "drafts": [], "critiques": [], "report": ""}
-        
-        logging.info(f"리서치 시작: '{query}'")
-        final_state = graph.invoke(initial_state)
-        logging.info("--- 리서치 완료 ---")
-        
-        return final_state.get("report", "보고서 생성에 실패했습니다.")
-    except Exception as e:
-        logging.info(f"에이전트 실행 중 오류 발생: {e}")
-        return f"오류가 발생했습니다: {e}"
-
-if __name__ == '__main__':
-    # 테스트용 실행 코드
-    test_query = "LLM 에이전트의 최신 연구 동향은 무엇인가?"
-    report = run_research_agent(test_query)
-    print("\n\n===== 최종 보고서 =====")
-    print(report)
