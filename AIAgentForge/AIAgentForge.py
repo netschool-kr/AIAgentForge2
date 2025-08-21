@@ -18,6 +18,7 @@ from AIAgentForge.pages.research import research_page
 from AIAgentForge.pages.lresearch import lresearch_page
 from AIAgentForge.pages.email import email_page
 from AIAgentForge.state.post_state import PostDetailState
+from AIAgentForge.state.dashboard_state import DashboardState
 
 # from AIAgentForge.pages.boards_page import boards_page # 전체 게시판 목록 페이지
 # from AIAgentForge.pages.board_page import board_page   # 특정 게시판의 글 목록 페이지
@@ -52,7 +53,11 @@ app = rx.App(
 )
 
 # 보호된 라우트
-app.add_page(dashboard_page, route="/", on_load=AuthState.check_auth)  
+app.add_page(
+    dashboard_page, 
+    route="/", 
+    on_load=[AuthState.check_auth, DashboardState.load_visible_boards]
+)
 app.add_page(chat_page, route="/chat", on_load=AuthState.check_auth)  
 #app.add_page(collections_page, route="/collections", on_load=[AuthState.check_auth, CollectionState.load_collections]) # on_load에 load_collections 추가
 app.add_page(
