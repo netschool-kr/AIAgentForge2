@@ -5,6 +5,7 @@ from .auth_state import AuthState
 from postgrest import SyncPostgrestClient
 import os
 from dotenv import load_dotenv
+from typing import Optional
 
 load_dotenv()
 
@@ -21,7 +22,7 @@ class CollectionState(BaseState):
     alert_message: str = ""
     show_confirm_modal: bool = False
     
-    collection_id_to_delete: str = None
+    collection_id_to_delete: Optional[str] = None
 
     @rx.event
     def set_show_confirm_modal(self, open: bool):
