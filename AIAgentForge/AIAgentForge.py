@@ -17,9 +17,17 @@ from AIAgentForge.pages.blog import blog_page
 from AIAgentForge.pages.research import research_page
 from AIAgentForge.pages.lresearch import lresearch_page
 from AIAgentForge.pages.email import email_page
+from AIAgentForge.state.post_state import PostDetailState
+
+# from AIAgentForge.pages.boards_page import boards_page # 전체 게시판 목록 페이지
+# from AIAgentForge.pages.board_page import board_page   # 특정 게시판의 글 목록 페이지
+from AIAgentForge.pages.post import post_page     # 게시글 상세 보기 페이지
+# from AIAgentForge.pages.post_form_page import post_form_page # 글 작성/수정 페이지
+
 from fastapi import FastAPI
 from AIAgentForge.api.v1_router import api_v1_router
 from uuid import uuid4
+
 
 def setup_langchain_tracing():
     """LangSmith 추적을 위한 환경 변수를 설정합니다."""
@@ -53,6 +61,7 @@ app.add_page(
     on_load=AuthState.check_auth
 )
 
+
 # 공개 라우트
 app.add_page(login_page, route="/login")
 app.add_page(signup_page, route="/signup")
@@ -60,9 +69,19 @@ app.add_page(search_page, route="/search")
 app.add_page(youtube_page, route="/youtube")
 app.add_page(blog_page, route="/blog")
 app.add_page(research_page, route="/research", title="AI Deep Research Agent")
+app.add_page(lresearch_page, route="/lresearch", title="Local AI Deep Research Agent")
 app.add_page(email_page, route="/email", title="Send Email To Users")
 
+# --- [게시판 관련 페이지 라우팅 추가] ---
+# app.add_page(boards_page, route="/boards", on_load=AuthState.check_auth)
+# app.add_page(board_page, route="/boards/[board_id]", on_load=[AuthState.check_auth, PostState.load_board_and_posts])
+app.add_page(post_page, route="/posts/[post_id]", on_load=[AuthState.check_auth, PostDetailState.load_post])
+# app.add_page(post_form_page, route="/new-post/[board_id]", on_load=AuthState.check_auth) # 새 글 작성
+# app.add_page(post_form_page, route="/edit-post/[post_id]", on_load=AuthState.check_auth) # 글 수정
+
+
 app.add_page(admin_page, route="/admin", on_load=AuthState.check_admin)
+
 
 
 
