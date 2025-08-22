@@ -3,6 +3,8 @@ import reflex as rx
 from .base import BaseState
 from .auth_state import AuthState
 from typing import Optional
+from postgrest import SyncPostgrestClient
+
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -21,7 +23,83 @@ class PostState(BaseState):
     # UI 상태
     is_loading: bool = False
     search_query: str = ""
+    title: str=""
+    content: str=""
 
+
+    def set_title(self, new_title: str):
+        self.title = new_title
+
+    def set_content(self, new_content: str):
+        self.content = new_content
+
+    async def _get_authenticated_client(self) -> SyncPostgrestClient:
+        auth_state = await self.get_state(AuthState)
+        if not auth_state.is_authenticated:
+            raise Exception("사용자가 인증되지 않았습니다.")
+        return SyncPostgrestClient(
+            f"{self.SUPABASE_URL}/rest/v1",
+            headers={
+                "apikey": self.SUPABASE_KEY,
+                "Authorization": f"Bearer {auth_state.access_token}",
+            }
+        )
+
+    # async def handle_post_submit(self):
+    #     """새로운 게시글을 데이터베이스에 저장합니다."""
+        
+    #     # 현재 로그인된 사용자 정보 가져오기
+    #     if not self.is_hydrated or not AuthState.user:
+    #         return rx.window_alert("로그인이 필요합니다.")
+        
+    #     # 현재 페이지의 board_id 가져오기
+    #     board_id = self.router.page.params.get("board_id", "")
+    #     if not board_id:
+    #         return rx.window_alert("게시판 정보를 찾을 수 없습니다.")
+
+    #     try:
+    #         with rx.session() as session:
+    #             # 새 Post 객체 생성
+    #             new_post = Post(
+    #                 title=self.title,
+    #                 content=self.content,
+    #                 created_at=datetime.datetime.utcnow(),
+    #                 board_id=board_id,
+    #                 user_id=AuthState.user["id"] # 현재 로그인한 사용자의 ID
+    #             )
+    #             session.add(new_post)
+    #             session.commit()
+
+    #         # 글 작성 후 상태 변수 초기화 및 게시판 상세 페이지로 리디렉션
+    #         self.title = ""
+    #         self.content = ""
+    #         return rx.redirect(f"/boards/{board_id}")
+
+    #     except Exception as e:
+    #         return rx.window_alert(f"글 저장 중 오류가 발생했습니다: {e}")
+                
+    async def load_board_details(self):
+        """'새 글 작성' 페이지 로드 시 게시판 정보만 불러옵니다."""
+        # 이전에 입력했을 수 있는 내용 초기화
+        self.title = ""
+        self.content = ""
+        logging.info(f"load_board_details:{self.router.url}")
+        self.curr_board_id = self.router.url.split('/')[-1]
+        if not self.curr_board_id:
+            logging.warning("Board ID not found for loading details.")
+            return
+
+        try:
+            # 게시판 정보만 간단히 조회
+            board_res = self.supabase_client.from_("boards").select("name").eq("id", self.curr_board_id).single().execute()
+            if board_res.data:
+                self.board_name = board_res.data.get("name", "알 수 없는 게시판")
+            else:
+                self.board_name = "게시판을 찾을 수 없습니다."
+        except Exception as e:
+            logging.error(f"Error loading board details: {e}")
+        yield
+        
     async def load_board_and_posts(self):
         """페이지 로드 시 게시판 정보와 게시글 목록을 함께 불러옵니다."""
         logging.info(f"Loading board with ID: {self.curr_board_id}")
@@ -75,11 +153,20 @@ class PostState(BaseState):
             if not self.is_authenticated:
                 return
 
-            self.supabase_client.from_("posts").insert({
-                "title": form_data["title"],
-                "content": form_data["content"],
+            auth_state = await self.get_state(AuthState)
+            if not auth_state.user:
+                print("사용자를 찾을 수 없습니다.")
+                self.alert_message = "사용자를 찾을 수 없습니다."
+                self.show_alert = True
+                self.is_uploading = False
+                return
+            user_id = auth_state.user.id
+            db_client = await self._get_authenticated_client()
+            db_client.from_("posts").insert({
+                "title": self.title,
+                "content": self.content,
                 "board_id": self.curr_board_id,
-                "user_id": self.user.get("id"), # user_id를 직접 저장
+                "user_id": user_id, # user_id를 직접 저장
             }).execute()
 
             yield PostState.load_board_and_posts
@@ -171,3 +258,4 @@ class PostDetailState(BaseState):
                 yield rx.redirect("/dashboard")
         except Exception as e:
             print(f"Error deleting post: {e}")
+            

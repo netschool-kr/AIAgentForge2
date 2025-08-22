@@ -68,7 +68,7 @@ def board_detail_page() -> rx.Component:
                     ),
                     rx.spacer(),
                     rx.link(
-                        rx.button("글쓰기"),
+                        rx.button("글쓰기", white_space="nowrap"),
                         href="/new-post/" + PostState.board_id
                     ),
                     width="100%",

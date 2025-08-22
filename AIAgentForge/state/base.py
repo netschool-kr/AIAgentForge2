@@ -4,6 +4,8 @@ import reflex as rx
 from supabase import create_client, Client
 from gotrue.types import User
 from typing import ClassVar
+import os
+from dotenv import load_dotenv
 
 class BaseState(rx.State):
     """
@@ -15,10 +17,18 @@ class BaseState(rx.State):
     # 이것들은 BaseState를 상속하는 다른 상태들이 접근할 수 있도록 여기에서 정의됩니다.
     is_authenticated: bool = False
     user: User | None = None
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""
+    
+    load_dotenv()
+
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 
     # 모든 상태에서 공유되는 Supabase 클라이언트 인스턴스.
     # ClassVar이므로 한 번만 초기화됩니다.
     supabase_client: ClassVar[Client] = create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_ANON_KEY")
+        SUPABASE_URL,
+        SUPABASE_KEY
     )
+    

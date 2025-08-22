@@ -21,6 +21,7 @@ from AIAgentForge.pages.research import research_page
 from AIAgentForge.pages.email import email_page
 #from AIAgentForge.pages.boards import boards_page
 from AIAgentForge.pages.board_detail.board_detail import board_detail_page # 상세 페이지 import
+from AIAgentForge.pages.new_post.new_post import new_post_page # 상세 페이지 import
 #from AIAgentForge.state.post_state import PostDetailState, PostState
 from AIAgentForge.state.board_state import BoardState
 
@@ -74,6 +75,11 @@ app.add_page(
     on_load=AuthState.check_auth
 )
 
+app.add_page(
+    new_post_page,
+    route="/new_post/[board_id]",
+    on_load=AuthState.check_auth
+)
 
 # 공개 라우트
 app.add_page(login_page, route="/login")
