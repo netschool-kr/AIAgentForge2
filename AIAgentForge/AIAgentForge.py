@@ -1,29 +1,32 @@
 # AIAgentForge/AIAgentForge.py
 import os
 from dotenv import load_dotenv
+load_dotenv()  # .env 파일에서 환경 변수를 로드합니다.
+
 import reflex as rx
 from AIAgentForge.pages.dashboard import dashboard_page
 from AIAgentForge.pages.chat import chat_page  # 새로 만든 chat_page를 가져옵니다.
 from AIAgentForge.pages.login import login_page      # 로그인 페이지 import
 from AIAgentForge.pages.signup import signup_page    # 회원가입 페이지 import
 from AIAgentForge.state.auth_state import AuthState  # 변경: AuthState import 추가 (BaseState 대신 사용)
-from AIAgentForge.pages.collections import collections_page # 새로 만든 페이지 import
-from AIAgentForge.state.collection_state import CollectionState  # CollectionState import 추가
+#from AIAgentForge.pages.collections import collections_page # 새로 만든 페이지 import
+# from AIAgentForge.state.collection_state import CollectionState  # CollectionState import 추가
 from AIAgentForge.pages.collection_detail.collection_detail import collection_detail_page # 상세 페이지 import
-from AIAgentForge.pages.search import search_page 
-from AIAgentForge.pages.admin_page import admin_page
+# from AIAgentForge.pages.search import search_page 
+# from AIAgentForge.pages.admin_page import admin_page
 from AIAgentForge.pages.youtube import youtube_page
 from AIAgentForge.pages.blog import blog_page
 from AIAgentForge.pages.research import research_page
-from AIAgentForge.pages.lresearch import lresearch_page
+#from AIAgentForge.pages.lresearch import lresearch_page
 from AIAgentForge.pages.email import email_page
-#from AIAgentForge.pages.boards import board_page
+#from AIAgentForge.pages.boards import boards_page
+from AIAgentForge.pages.board_detail.board_detail import board_detail_page # 상세 페이지 import
 #from AIAgentForge.state.post_state import PostDetailState, PostState
-from AIAgentForge.state.dashboard_state import DashboardState
+from AIAgentForge.state.board_state import BoardState
 
 # from AIAgentForge.pages.boards_page import boards_page # 전체 게시판 목록 페이지
 # from AIAgentForge.pages.board_page import board_page   # 특정 게시판의 글 목록 페이지
-from AIAgentForge.pages.post import post_page     # 게시글 상세 보기 페이지
+#from AIAgentForge.pages.post import post_page     # 게시글 상세 보기 페이지
 # from AIAgentForge.pages.post_form_page import post_form_page # 글 작성/수정 페이지
 
 from fastapi import FastAPI
@@ -42,7 +45,6 @@ def setup_langchain_tracing():
     else:
         print("ℹ️ LangSmith 추적을 사용하려면 LANGCHAIN_API_KEY를 설정하세요.")
 
-load_dotenv()  # .env 파일에서 환경 변수를 로드합니다.
 # 1. 확장할 FastAPI 앱 인스턴스를 생성합니다.
 fastapi_app = FastAPI(title="AIAgentForge API")
 fastapi_app.include_router(api_v1_router)
@@ -57,7 +59,7 @@ app = rx.App(
 app.add_page(
     dashboard_page, 
     route="/", 
-    on_load=[AuthState.check_auth, DashboardState.load_visible_boards]
+    on_load=[AuthState.check_auth, BoardState.load_visible_boards]
 )
 app.add_page(chat_page, route="/chat", on_load=AuthState.check_auth)  
 app.add_page(
@@ -66,6 +68,11 @@ app.add_page(
     on_load=AuthState.check_auth
 )
 
+app.add_page(
+    board_detail_page,
+    route="/boards/[board_id]",
+    on_load=AuthState.check_auth
+)
 
 
 # 공개 라우트

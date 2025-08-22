@@ -12,6 +12,7 @@ def navbar() -> rx.Component:
             # 로그인 상태일 때
             rx.hstack(
                 rx.link("대시보드", href="/"),
+                rx.link("게시판", href="/boards"),
                 rx.link("컬렉션", href="/collections"), # 컬렉션 페이지 링크 추가
                 #rx.link("검색", href="/search"),
                 rx.link("채팅", href="/chat"),

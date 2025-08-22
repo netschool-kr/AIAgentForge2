@@ -3,7 +3,7 @@ import reflex as rx
 from .base import BaseState
 from .auth_state import AuthState
 
-class DashboardState(BaseState):
+class BoardState(BaseState):
     """
     대시보드 페이지의 상태를 관리하는 클래스입니다.
     """

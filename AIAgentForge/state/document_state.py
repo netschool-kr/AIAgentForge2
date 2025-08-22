@@ -73,6 +73,7 @@ class DocumentState(BaseState):
         return client
 
     async def load_documents_on_page_load(self):
+        logging.info(f"load_documents_on_page_load:{self.router.url}")
         collection_id = self.router.url.split('/')[-1]
         
         if not collection_id:

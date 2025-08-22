@@ -6,6 +6,8 @@ from postgrest import SyncPostgrestClient
 import os
 from dotenv import load_dotenv
 from typing import Optional
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 load_dotenv()
 

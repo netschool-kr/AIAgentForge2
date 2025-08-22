@@ -32,7 +32,7 @@ def board_card(board: dict) -> rx.Component:
 # @rx.page 데코레이터를 추가하여 페이지 로드 이벤트를 설정합니다.
 # 사용자가 로그인했는지 먼저 확인하고, 게시판 목록을 불러옵니다.
 @rx.page(route="/boards", on_load=[AuthState.check_auth, BoardState.load_visible_boards])
-def dashboard_page() -> rx.Component:
+def boards_page() -> rx.Component:
     """
     대시보드의 메인 페이지 UI를 정의하는 컴포넌트 함수입니다.
     """
