@@ -37,21 +37,21 @@ class PostState(BaseState):
         """게시물 상세 페이지로 리디렉션하는 이벤트 핸들러."""
         return rx.redirect(f"/posts/{post_id}")
     
-    async def _get_authenticated_client(self) -> SyncPostgrestClient:
-        auth_state = await self.get_state(AuthState)
-        if not auth_state.is_authenticated:
-            # 인증이 필요없는 읽기 작업 등을 위해 익명 클라이언트를 반환할 수도 있습니다.
-            # 여기서는 RLS 정책상 인증이 필요하다고 가정합니다.
-            logging.warning("User is not authenticated. Returning anonymous client.")
-            return self.supabase_client # 익명 클라이언트 반환
+    # async def _get_authenticated_client(self) -> SyncPostgrestClient:
+    #     auth_state = await self.get_state(AuthState)
+    #     if not auth_state.is_authenticated:
+    #         # 인증이 필요없는 읽기 작업 등을 위해 익명 클라이언트를 반환할 수도 있습니다.
+    #         # 여기서는 RLS 정책상 인증이 필요하다고 가정합니다.
+    #         logging.warning("User is not authenticated. Returning anonymous client.")
+    #         return self.supabase_client # 익명 클라이언트 반환
             
-        return SyncPostgrestClient(
-            f"{self.SUPABASE_URL}/rest/v1",
-            headers={
-                "apikey": self.SUPABASE_KEY,
-                "Authorization": f"Bearer {auth_state.access_token}",
-            }
-        )
+    #     return SyncPostgrestClient(
+    #         f"{self.SUPABASE_URL}/rest/v1",
+    #         headers={
+    #             "apikey": self.SUPABASE_KEY,
+    #             "Authorization": f"Bearer {auth_state.access_token}",
+    #         }
+    #     )
                 
     async def load_board_details(self):
         """'새 글 작성' 페이지 로드 시 게시판 정보만 불러옵니다."""
@@ -175,7 +175,7 @@ class PostDetailState(BaseState):
         """현재 로그인한 사용자가 게시글 작성자인지 확인합니다."""
         if not self.is_authenticated or not self.user or not self.post:
             return False
-        return self.user.get("id") == self.post.get("user_id")
+        return self.user.id == self.post.get("user_id")
     
     @rx.var
     def formatted_created_at(self) -> str:

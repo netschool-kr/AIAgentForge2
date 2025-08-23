@@ -22,6 +22,7 @@ from AIAgentForge.pages.email import email_page
 #from AIAgentForge.pages.boards import boards_page
 from AIAgentForge.pages.board_detail.board_detail import board_detail_page # 상세 페이지 import
 from AIAgentForge.pages.new_post.new_post import new_post_page # 상세 페이지 import
+from AIAgentForge.pages.post_detail.post_detail import post_detail_page
 #from AIAgentForge.state.post_state import PostDetailState, PostState
 from AIAgentForge.state.board_state import BoardState
 
@@ -78,6 +79,12 @@ app.add_page(
 app.add_page(
     new_post_page,
     route="/new_post/[board_id]",
+    on_load=AuthState.check_auth
+)
+
+app.add_page(
+    post_detail_page,
+    route="/posts/[post_id]",
     on_load=AuthState.check_auth
 )
 

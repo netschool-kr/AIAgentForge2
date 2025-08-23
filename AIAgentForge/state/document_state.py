@@ -52,25 +52,25 @@ class DocumentState(BaseState):
     def set_process_document(self, value: bool):
         self.process_document = value
         
-    async def _get_authenticated_client(self) -> SyncPostgrestClient:
-        auth_state = await self.get_state(AuthState)
-        if not auth_state.is_authenticated:
-            raise Exception("사용자가 인증되지 않았습니다.")
-        return SyncPostgrestClient(
-            f"{SUPABASE_URL}/rest/v1",
-            headers={
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {auth_state.access_token}",
-            }
-        )
+    # async def _get_authenticated_client(self) -> SyncPostgrestClient:
+    #     auth_state = await self.get_state(AuthState)
+    #     if not auth_state.is_authenticated:
+    #         raise Exception("사용자가 인증되지 않았습니다.")
+    #     return SyncPostgrestClient(
+    #         f"{SUPABASE_URL}/rest/v1",
+    #         headers={
+    #             "apikey": SUPABASE_KEY,
+    #             "Authorization": f"Bearer {auth_state.access_token}",
+    #         }
+    #     )
 
-    async def _get_supabase_client(self) -> Client:
-        auth_state = await self.get_state(AuthState)
-        if not auth_state.is_authenticated:
-            raise Exception("사용자가 인증되지 않았습니다.")
-        client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        client.auth.set_session(auth_state.access_token, '')
-        return client
+    # async def _get_supabase_client(self) -> Client:
+    #     auth_state = await self.get_state(AuthState)
+    #     if not auth_state.is_authenticated:
+    #         raise Exception("사용자가 인증되지 않았습니다.")
+    #     client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    #     client.auth.set_session(auth_state.access_token, '')
+    #     return client
 
     async def load_documents_on_page_load(self):
         logging.info(f"load_documents_on_page_load:{self.router.url}")
