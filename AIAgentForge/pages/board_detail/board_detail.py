@@ -9,14 +9,13 @@ from AIAgentForge.state.auth_state import AuthState
 def post_list() -> rx.Component:
     """
     DB에 저장된 게시물 목록을 표시하는 컴포넌트입니다.
+    각 행을 클릭하면 해당 게시물의 상세 페이지로 이동합니다.
     """
-
     return rx.table.root(
         rx.table.header(
             rx.table.row(
                 rx.table.column_header_cell("제목"),
                 rx.table.column_header_cell("생성일"),
-                # rx.table.column_header_cell("작업"),                
             )
         ),
         rx.table.body(
@@ -25,14 +24,12 @@ def post_list() -> rx.Component:
                 lambda post: rx.table.row(
                     rx.table.cell(post["title"]),
                     rx.table.cell(post["created_at"]),
-                    # rx.table.cell(
-                    #     rx.button(
-                    #         "삭제", 
-                    #         color_scheme="red", 
-                    #         variant="soft",
-                    #         on_click=PostState.delete(post["id"])  # 삭제 핸들러 추가 (doc에 "id" 키가 있다고 가정)
-                    #     )
-                    # ),                    
+                    # on_click 이벤트를 State의 이벤트 핸들러로 변경
+                    on_click=PostState.go_to_post(post["id"]),
+                    _hover={
+                        "cursor": "pointer", 
+                        "background_color": rx.color("gray", 3)
+                    },
                 )
             )
         ),
@@ -69,17 +66,17 @@ def board_detail_page() -> rx.Component:
                     rx.spacer(),
                     rx.link(
                         rx.button("글쓰기", white_space="nowrap"),
-                        href="/new-post/" + PostState.board_id
+                        # PostState.board_id가 아닌 PostState.curr_board_id를 사용해야 합니다.
+                        href="/new-post/" + PostState.curr_board_id
                     ),
                     width="100%",
                     margin_bottom="1.5em",
                 ),
 
-                # 수정된 부분: collection_detail.py와 같이 구조를 단순화했습니다.
                 rx.cond(
                     PostState.is_loading,
                     rx.center(rx.spinner(), height="30vh"),
-                    post_list()  # 로딩이 끝나면 post_list 함수를 호출
+                    post_list()
                 ),
                 spacing="5",
             ),
