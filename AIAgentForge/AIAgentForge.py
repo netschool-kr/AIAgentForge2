@@ -32,7 +32,7 @@ from AIAgentForge.state.board_state import BoardState
 # from AIAgentForge.pages.post_form_page import post_form_page # 글 작성/수정 페이지
 
 from fastapi import FastAPI
-from AIAgentForge.api.v1_router import api_v1_router
+from AIAgentForge.utils.v1_router import api_v1_router
 from uuid import uuid4
 
 

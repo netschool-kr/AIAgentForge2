@@ -1,4 +1,4 @@
-# AIAgentForge/api/dependencies.py
+# AIAgentForge/utils/dependencies.py
 
 import os
 from typing import Annotated

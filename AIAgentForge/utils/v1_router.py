@@ -1,4 +1,4 @@
-# AIAgentForge/api/v1_router.py
+# AIAgentForge/utils/v1_router.py
 
 import json
 from fastapi import APIRouter, Depends
@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from gotrue.types import User
 
 from AIAgentForge.state.base import BaseState # Supabase 클라이언트 접근
-from AIAgentForge.api.dependencies import get_current_user
+from AIAgentForge.utils.dependencies import get_current_user
 from AIAgentForge.utils.embedder import generate_embeddings
 
 # API 버전 1을 위한 라우터를 생성합니다.
