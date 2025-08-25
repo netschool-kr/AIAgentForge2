@@ -12,7 +12,7 @@ from AIAgentForge.state.auth_state import AuthState  # 변경: AuthState import 
 from AIAgentForge.pages.collections import collections_page # 새로 만든 페이지 import
 # from AIAgentForge.state.collection_state import CollectionState  # CollectionState import 추가
 from AIAgentForge.pages.collection_detail.collection_detail import collection_detail_page # 상세 페이지 import
-# from AIAgentForge.pages.search import search_page 
+from AIAgentForge.pages.search import search_page 
 from AIAgentForge.pages.admin_page import admin_page
 from AIAgentForge.pages.youtube import youtube_page
 from AIAgentForge.pages.blog import blog_page
@@ -91,7 +91,7 @@ app.add_page(
 # 공개 라우트
 app.add_page(login_page, route="/login")
 app.add_page(signup_page, route="/signup")
-#app.add_page(search_page, route="/search")
+app.add_page(search_page, route="/search")
 app.add_page(collections_page, route="/collections")
 app.add_page(youtube_page, route="/youtube")
 app.add_page(blog_page, route="/blog")

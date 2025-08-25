@@ -84,9 +84,11 @@ def collections_page() -> rx.Component:
                 # 다이얼로그가 닫힐 때 (예: ESC 키, 오버레이 클릭) 상태를 업데이트합니다.
                 on_open_change=CollectionState.set_show_confirm_modal,
             ),
+            size="4", # 컨테이너 사이즈를 키워 좌우 여백을 줄입니다.
         ),
         rx.container(
             rx.text("로그인해주세요."),
-            rx.link("로그인 페이지로 이동", href="/login")
+            rx.link("로그인 페이지로 이동", href="/login"),
+            size="4", # 컨테이너 사이즈를 키워 좌우 여백을 줄입니다.
         )
     )
