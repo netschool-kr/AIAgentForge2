@@ -2,7 +2,7 @@
 import reflex as rx
 from .base import BaseState
 from .auth_state import AuthState
-from typing import Optional
+from typing import Optional, Dict, Any
 from postgrest import SyncPostgrestClient
 
 import logging
@@ -22,9 +22,9 @@ class PostState(BaseState):
 
     # UI 상태
     is_loading: bool = False
-    search_query: str = ""
-    title: str=""
-    content: str=""
+    search_query: str | None
+    title: str | None
+    content: str | None
 
 
     def set_title(self, new_title: str):
@@ -143,7 +143,7 @@ class PostState(BaseState):
                 logging.warning("User is not authenticated. Cannot create post.")
                 return
 
-            user_id = auth_state.user['id']
+            user_id = auth_state.user.id
             
             db_client = await self._get_authenticated_client()
             db_client.from_("posts").insert({
@@ -166,7 +166,7 @@ class PostDetailState(BaseState):
     """게시글 상세 보기, 수정, 삭제를 위한 상태"""
     
     current_post_id: Optional[str] = None
-    post: dict = {}
+    post: Dict[str, Any] = {}
     is_loading: bool = False
     is_editing: bool = False
 

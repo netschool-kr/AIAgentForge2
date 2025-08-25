@@ -55,7 +55,7 @@ def board_detail_page() -> rx.Component:
                     rx.form(
                         rx.hstack(
                             rx.input(
-                                value=PostState.search_query,
+                                value=rx.cond(PostState.search_query, PostState.search_query, ""),
                                 on_change=PostState.set_search_query,
                                 placeholder="제목 또는 내용으로 검색...",
                             ),

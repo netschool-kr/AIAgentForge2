@@ -47,7 +47,7 @@ def signup_page() -> rx.Component:
                 AuthState.error_message != "",
                 rx.callout(
                     AuthState.error_message,
-                    icon="alert_triangle",
+                    icon="triangle_alert",
                     color_scheme="red",
                     width="100%",
                     margin_top="1em",

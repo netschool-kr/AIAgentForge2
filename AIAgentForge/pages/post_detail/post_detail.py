@@ -32,12 +32,12 @@ def edit_post_view() -> rx.Component:
     return rx.form(
         rx.vstack(
             rx.input(
-                default_value=PostDetailState.post.get("title"),
+                default_value=PostDetailState.post.get("title", ""), 
                 name="title",
                 width="100%",
             ),
             rx.text_area(
-                default_value=PostDetailState.post.get("content"),
+                default_value=PostDetailState.post.get("content", ""), 
                 name="content",
                 width="100%",
                 height="25em",

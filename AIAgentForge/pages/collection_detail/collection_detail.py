@@ -22,7 +22,7 @@ def render_upload_progress() -> rx.Component:
                         DocumentState.upload_errors.get(filename),
                         rx.callout(
                             DocumentState.upload_errors.get(filename, ""),
-                            icon="alert_triangle",
+                            icon="triangle_alert",
                             color_scheme="red",
                             width="100%",
                         ),
