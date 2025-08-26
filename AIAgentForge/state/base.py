@@ -31,9 +31,9 @@ class BaseState(rx.State):
         SUPABASE_KEY
     )
 
+    # Supabase의 데이터베이스(Postgres) 부분만을 다루는 클라이언트
     async def _get_authenticated_client(self) -> SyncPostgrestClient:
         """인증된 Postgrest 클라이언트를 반환합니다."""
-        # --- [수정된 부분] ---
         # 함수 내에서 AuthState를 import하여 순환 참조를 방지합니다.
         from .auth_state import AuthState
         
@@ -48,9 +48,11 @@ class BaseState(rx.State):
             }
         )
 
+    #전체 Client 인스턴스(Supabase Python SDK의 supabase-py 라이브러리에서 제공). 
+    # 이는 데이터베이스(Postgrest)뿐만 아니라 인증(auth), 실시간(realtime), 스토리지(storage) 등 
+    # Supabase의 모든 기능을 포함합니다
     async def _get_supabase_client(self) -> Client:
         """인증된 Supabase 클라이언트를 반환합니다."""
-        # --- [수정된 부분] ---
         # 함수 내에서 AuthState를 import하여 순환 참조를 방지합니다.
         from .auth_state import AuthState
 

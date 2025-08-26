@@ -70,18 +70,18 @@ class CollectionState(BaseState):
             self.show_alert = True
             yield
 
-    async def _get_authenticated_client(self):
-        """Create authenticated Postgrest client with user's token."""
-        auth_state = await self.get_state(AuthState)
-        if not auth_state.is_authenticated or not hasattr(auth_state, 'access_token'):
-            raise Exception("Not authenticated or no token available")
-        return SyncPostgrestClient(
-            f"{SUPABASE_URL}/rest/v1",
-            headers={
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {auth_state.access_token}",
-            }
-        )
+    # async def _get_authenticated_client(self):
+    #     """Create authenticated Postgrest client with user's token."""
+    #     auth_state = await self.get_state(AuthState)
+    #     if not auth_state.is_authenticated or not hasattr(auth_state, 'access_token'):
+    #         raise Exception("Not authenticated or no token available")
+    #     return SyncPostgrestClient(
+    #         f"{SUPABASE_URL}/rest/v1",
+    #         headers={
+    #             "apikey": SUPABASE_KEY,
+    #             "Authorization": f"Bearer {auth_state.access_token}",
+    #         }
+    #     )
         
     async def load_collections(self):
         """사용자 소유의 모든 컬렉션을 데이터베이스에서 불러옵니다."""

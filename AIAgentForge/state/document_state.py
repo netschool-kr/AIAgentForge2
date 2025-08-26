@@ -12,7 +12,8 @@ from typing import List
 from ..utils.text_extractor import extract_text_from_file
 from ..utils.chunker import chunk_text
 from ..utils.embedder import generate_embeddings
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, quote # quote import 추가
+import uuid
 import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -51,26 +52,6 @@ class DocumentState(BaseState):
         
     def set_process_document(self, value: bool):
         self.process_document = value
-        
-    # async def _get_authenticated_client(self) -> SyncPostgrestClient:
-    #     auth_state = await self.get_state(AuthState)
-    #     if not auth_state.is_authenticated:
-    #         raise Exception("사용자가 인증되지 않았습니다.")
-    #     return SyncPostgrestClient(
-    #         f"{SUPABASE_URL}/rest/v1",
-    #         headers={
-    #             "apikey": SUPABASE_KEY,
-    #             "Authorization": f"Bearer {auth_state.access_token}",
-    #         }
-    #     )
-
-    # async def _get_supabase_client(self) -> Client:
-    #     auth_state = await self.get_state(AuthState)
-    #     if not auth_state.is_authenticated:
-    #         raise Exception("사용자가 인증되지 않았습니다.")
-    #     client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    #     client.auth.set_session(auth_state.access_token, '')
-    #     return client
 
     async def load_documents_on_page_load(self):
         logging.info(f"load_documents_on_page_load:{self.router.url}")
@@ -106,9 +87,6 @@ class DocumentState(BaseState):
     # Supabase Bucket에 file을 upload
     async def handle_upload(self, files: list[rx.UploadFile]):
         """업로드된 파일들을 처리하며 단계별로 상태를 직접 업데이트합니다."""
-
-
-
         collection_id = self.router.url.split('/')[-1]
         
         if not collection_id:
@@ -145,42 +123,46 @@ class DocumentState(BaseState):
 
         successful_uploads = 0
         for file in files:
-            filename = file.name
+            original_filename = file.name # [수정] 원래 파일 이름 저장
             try:
-                # 1. DB에서 기존 문서 확인
-                existing_doc_res = db_client.from_("documents").select("id").eq("name", filename).eq("collection_id", collection_id).maybe_single().execute()
+                # [수정] DB 중복 체크는 원래 파일 이름으로 수행
+                existing_doc_res = db_client.from_("documents").select("id").eq("name", original_filename).eq("collection_id", collection_id).maybe_single().execute()
                 
-                # 2. 문서가 존재하면 오류 처리 후 건너뛰기
                 if existing_doc_res and existing_doc_res.data:
-                    logger.warning(f"File '{filename}' already exists in this collection. Skipping.")
-                    self.upload_status[filename] = "❌ 실패"
-                    self.upload_errors[filename] = "이미 같은 이름의 파일이 존재합니다."
-                    self.upload_progress[filename] = 100 # 진행률 100%로 설정하여 완료(오류) 상태 표시
+                    logger.warning(f"File '{original_filename}' already exists in this collection. Skipping.")
+                    self.upload_status[original_filename] = "❌ 실패"
+                    self.upload_errors[original_filename] = "이미 같은 이름의 파일이 존재합니다."
+                    self.upload_progress[original_filename] = 100
                     yield
-                    continue # 다음 파일로 넘어감                
+                    continue
                 
                 file_content = await file.read()
                 content_type = file.content_type
 
-                # upload_document:
-                self.upload_status[filename] = "스토리지에 업로드 중..."
-                self.upload_progress[filename] = 10
+                self.upload_status[original_filename] = "스토리지에 업로드 중..."
+                self.upload_progress[original_filename] = 10
                 yield
 
-                storage_path = f"{user_id}/{collection_id}/{filename}"
+                # [수정] 스토리지에 저장할 새 파일 이름 생성 (UUID + 원래 확장자)
+                file_extension = os.path.splitext(original_filename)[1]
+                storage_filename = f"{uuid.uuid4()}{file_extension}"
+                storage_path = f"{user_id}/{collection_id}/{storage_filename}"
+                
+                logger.info(f"Attempting to upload to storage path: {storage_path}")
+
                 storage_response = supabase_client.storage.from_(BUCKET_NAME).upload(
-                    f"{storage_path}", 
+                    storage_path,
                     file_content,
                     {'content-type': content_type or 'application/octet-stream'}
                 )
 
                 if not storage_response.full_path:
-                    # Supabase 스토리지 응답이 JSON 형태일 수 있으므로 텍스트로 변환
                     error_detail = storage_response.text
                     raise Exception(f"Storage upload failed: {error_detail}")
 
+                # [수정] DB에는 원래 파일 이름(name)과 UUID 기반 경로(storage_path)를 함께 저장
                 response = db_client.from_("documents").insert({
-                    "name": filename,
+                    "name": original_filename,
                     "collection_id": collection_id,
                     "owner_id": user_id,
                     "storage_path": storage_response.full_path
@@ -191,44 +173,43 @@ class DocumentState(BaseState):
                     document_id = inserted_document['id']
                     print(f"새로 생성된 문서 ID: {document_id}")
                     
-                self.upload_progress[filename] = 20
-                self.upload_status[filename] = "Text 추출 중"
+                self.upload_progress[original_filename] = 20
+                self.upload_status[original_filename] = "Text 추출 중"
                 successful_uploads += 1
                 yield
                     
-                # process_document:
                 print(" Process Document")
                 
-                self.upload_progress[filename] = 30                
-                self.upload_status[filename] = "Text 추출 중"
+                self.upload_progress[original_filename] = 30                
+                self.upload_status[original_filename] = "Text 추출 중"
                 yield
                 
                 text = extract_text_from_file(file_content, content_type)
-                logger.info(f"Extracted text length for {filename}: {len(text)}")
+                logger.info(f"Extracted text length for {original_filename}: {len(text)}")
                 if not text:
-                    print(f"No text extracted for {filename}, content_type: {content_type}")
+                    print(f"No text extracted for {original_filename}, content_type: {content_type}")
                     
-                self.upload_progress[filename] = 50
-                self.upload_status[filename] = "Chunking"
+                self.upload_progress[original_filename] = 50
+                self.upload_status[original_filename] = "Chunking"
                 yield
 
                 chunks = chunk_text(text)
-                logger.info(f"Number of chunks for {filename}: {len(chunks)}")
+                logger.info(f"Number of chunks for {original_filename}: {len(chunks)}")
                 if not chunks:
-                    print(f"No chunks created for {filename}")
+                    print(f"No chunks created for {original_filename}")
 
-                self.upload_progress[filename] = 60
-                self.upload_status[filename] = "Embedding"
+                self.upload_progress[original_filename] = 60
+                self.upload_status[original_filename] = "Embedding"
                 yield
 
                 embeddings = await generate_embeddings([chunk['text'] for chunk in chunks])
-                logger.info(f"Number of embeddings for {filename}: {len(embeddings)}")
+                logger.info(f"Number of embeddings for {original_filename}: {len(embeddings)}")
 
-                self.upload_progress[filename] = 80
-                self.upload_status[filename] = "DB Updating"
+                self.upload_progress[original_filename] = 80
+                self.upload_status[original_filename] = "DB Updating"
                 yield
 
-                logger.info(f"Using document_id: {document_id} for {filename}")
+                logger.info(f"Using document_id: {document_id} for {original_filename}")
                 records_to_insert = [
                     {
                         "owner_id": user_id,
@@ -238,31 +219,29 @@ class DocumentState(BaseState):
                     }
                     for chunk, embedding in zip(chunks, embeddings)
                 ]
-                logger.info(f"Number of records to insert for {filename}: {len(records_to_insert)}")
+                logger.info(f"Number of records to insert for {original_filename}: {len(records_to_insert)}")
                 
                 
                 if records_to_insert:
                     response = supabase_client.table("document_sections").insert(records_to_insert).execute()
-                    logger.info(f"Insert response for {filename}: data length={len(response.data) if response.data else 0}, count={response.count}")
+                    logger.info(f"Insert response for {original_filename}: data length={len(response.data) if response.data else 0}, count={response.count}")
                 else:
-                    logger.info(f"No records to insert for {filename}")
+                    logger.info(f"No records to insert for {original_filename}")
 
-                self.upload_progress[filename] = 100
-                self.upload_status[filename] = "✅ 완료"
+                self.upload_progress[original_filename] = 100
+                self.upload_status[original_filename] = "✅ 완료"
 
                 yield
                     
-                    
             except Exception as e:
-                self.upload_status[filename] = "❌ 실패"
-                self.upload_errors[filename] = f"오류: {str(e)}"
-                self.upload_progress[filename] = 100
+                self.upload_status[original_filename] = "❌ 실패"
+                self.upload_errors[original_filename] = f"오류: {str(e)}"
+                self.upload_progress[original_filename] = 100
                 yield
                 
         if successful_uploads > 0:
             self.alert_message = f"{successful_uploads} / {len(files)}개의 파일이 성공적으로 업로드되었습니다."
             self.show_alert = True
-            # 컬렉션 상세 페이지에 문서 목록이 있다면 새로고침
             yield DocumentState.load_documents_on_page_load
         
         await asyncio.sleep(5)
@@ -271,7 +250,7 @@ class DocumentState(BaseState):
         self.upload_status = {}
         self.upload_errors = {}
         yield
-            
+                            
     #@rx.event(background=True)
     async def ProcessDocument(self, supabase_client, filename: str, collection_id: str):
         try:
