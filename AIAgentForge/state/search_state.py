@@ -50,7 +50,7 @@ class SearchState(BaseState):
 
             # Step 2: 데이터베이스에서 관련 문서 검색
             response = self.supabase_client.rpc(
-                "hybrid_search_multilingual_test",
+                "hybrid_search_multilingual",
                 params={
                     "query_text": self.search_query,
                     "query_embedding": query_embedding,

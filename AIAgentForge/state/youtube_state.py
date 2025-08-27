@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import re
-import reflex as xt
+import reflex as rx
 from typing import Tuple
 
 # LangChain 및 LLM 관련 라이브러리
@@ -76,13 +76,13 @@ def get_script_from_youtube(url: str) -> Tuple[str, str]:
     transcript_data = found_transcript.fetch()
     detected_language_code = found_transcript.language_code
     
-    full_script = " ".join(entry.text for entry in transcript_data).strip()
+    full_script = " ".join(entry.terx for entry in transcript_data).strip()
     return full_script, detected_language_code
 
 
 # --- Reflex State ---
 
-class YoutubeState(xt.State):
+class YoutubeState(rx.State):
     """웹 앱의 상태와 전체 워크플로우를 관리합니다."""
     youtube_url: str = ""
     original_script: str = ""

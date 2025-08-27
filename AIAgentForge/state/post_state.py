@@ -7,6 +7,7 @@ from postgrest import SyncPostgrestClient
 
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+import datetime
 
 class PostState(BaseState):
     """게시판별 게시글 관리(CRUD, 검색)를 위한 상태"""
@@ -161,14 +162,44 @@ class PostState(BaseState):
         except Exception as e:
             logging.error(f"Error creating post: {e}")
             
-
 class PostDetailState(BaseState):
-    """게시글 상세 보기, 수정, 삭제를 위한 상태"""
-    
+    """게시물 상세 페이지의 상태를 관리합니다."""
     current_post_id: Optional[str] = None
-    post: Dict[str, Any] = {}
-    is_loading: bool = False
+    post: dict = {}
+    is_loading: bool = True
     is_editing: bool = False
+
+    comments: list[dict] = []
+    new_comment_content: str = ""
+
+    @rx.var
+    def no_comments(self) -> bool:
+        """댓글이 없는지 확인하는 계산된 변수."""
+        return len(self.comments) == 0
+
+    @rx.var
+    def formatted_created_at(self) -> str:
+        """게시물 작성 시간을 보기 좋은 형식으로 변환합니다."""
+        created_at_str = self.post.get("created_at")
+        if created_at_str:
+            if created_at_str.endswith('Z'):
+                created_at_str = created_at_str[:-1] + '+00:00'
+            if '.' in created_at_str:
+                # 타임존 정보가 있는 경우 분리 후 재조합
+                if '+' in created_at_str:
+                    dt_part, tz_part = created_at_str.split('+')
+                    dt_part = dt_part.split('.')[0]
+                    created_at_str = f"{dt_part}+{tz_part}"
+                else: # 타임존 정보가 없는 경우
+                    created_at_str = created_at_str.split('.')[0]
+                
+            try:
+                dt_object =  datetime.datetime.fromisoformat(created_at_str)
+                return dt_object.strftime("%Y년 %m월 %d일 %H:%M")
+            except ValueError as e:
+                print(f"Date format error: {e}, original string: {self.post.get('created_at')}")
+                return "날짜 형식 오류"
+        return ""
 
     @rx.var
     def is_author(self) -> bool:
@@ -176,18 +207,40 @@ class PostDetailState(BaseState):
         if not self.is_authenticated or not self.user or not self.post:
             return False
         return self.user.id == self.post.get("user_id")
-    
-    @rx.var
-    def formatted_created_at(self) -> str:
-        """생성 날짜를 보기 좋은 형식으로 변환합니다."""
-        if created_at := self.post.get("created_at"):
-            dt_part = created_at.rstrip('Z').replace("T", " ")
-            return dt_part[:16]
-        return ""
 
-    def toggle_edit(self):
-        """수정 모드를 토글합니다."""
-        self.is_editing = not self.is_editing
+
+    async def load_comments(self, db_client):
+        """게시물에 달린 댓글 목록을 불러오고 날짜를 포맷팅합니다."""
+        logging.info("Entering load_comments")
+        try:
+            comments_res = db_client.from_("comments").select("*").eq("post_id", self.current_post_id).order("created_at", desc=True).execute()
+            
+            formatted_comments = []
+            for comment in comments_res.data:
+                created_at_str = comment.get("created_at")
+                if created_at_str:
+                    if created_at_str.endswith('Z'):
+                        created_at_str = created_at_str[:-1] + '+00:00'
+                    if '.' in created_at_str:
+                        if '+' in created_at_str:
+                            dt_part, tz_part = created_at_str.split('+')
+                            dt_part = dt_part.split('.')[0]
+                            created_at_str = f"{dt_part}+{tz_part}"
+                        else:
+                            created_at_str = created_at_str.split('.')[0]
+
+                    try:
+                        dt_object = datetime.datetime.fromisoformat(created_at_str)
+                        comment["formatted_created_at"] = dt_object.strftime("%Y-%m-%d %H:%M")
+                    except ValueError:
+                        comment["formatted_created_at"] = "날짜 형식 오류"
+                else:
+                    comment["formatted_created_at"] = ""
+                formatted_comments.append(comment)
+            
+            self.comments = formatted_comments
+        except Exception as e:
+            print(f"Error loading comments: {e}")
 
     async def load_post(self):
         """ID를 기반으로 특정 게시글의 상세 정보를 불러옵니다."""
@@ -205,12 +258,40 @@ class PostDetailState(BaseState):
             # 상세 정보 조회 시에도 인증된 클라이언트를 사용합니다.
             db_client = await self._get_authenticated_client()
             response = db_client.from_("posts").select("*").eq("id", self.current_post_id).single().execute()
-            self.post = response.data or {}
+            if response.data:
+                self.post = response.data
+                logging.info("Calling load_comments")
+                await self.load_comments(db_client)
+            else :
+                self.post = {}
         except Exception as e:
             logging.info(f"Error loading post detail: {e}")
         finally:
             self.is_loading = False
             yield
+            
+    async def delete_post(self):
+        """게시글을 삭제하고 게시판 목록 페이지로 리디렉션합니다."""
+        if not self.is_author:
+            logging.info("Permission denied for deletion.")
+            return
+
+        board_id = self.post.get("board_id")
+
+        try:
+            client = await self._get_authenticated_client()
+            client.from_("posts").delete().eq("id", self.current_post_id).execute()
+            
+            if board_id:
+                return rx.redirect(f"/boards/{board_id}")
+            else:
+                return rx.redirect("/dashboard")
+        except Exception as e:
+            print(f"Error deleting post: {e}")
+
+    def toggle_edit(self):
+        """수정 모드를 토글합니다."""
+        self.is_editing = not self.is_editing
 
     async def update_post(self, form_data: dict):
         """게시글 내용을 수정합니다."""
@@ -230,21 +311,42 @@ class PostDetailState(BaseState):
         except Exception as e:
             print(f"Error updating post: {e}")
 
-    async def delete_post(self):
-        """게시글을 삭제하고 게시판 목록 페이지로 리디렉션합니다."""
-        if not self.is_author:
-            logging.info("Permission denied for deletion.")
+    async def create_comment(self, form_data: dict):
+        """새로운 댓글을 작성합니다."""
+        content = form_data.get("comment_content")
+        if not self.user or not content:
             return
-
-        board_id = self.post.get("board_id")
-
+        
         try:
-            client = await self._get_authenticated_client()
-            client.from_("posts").delete().eq("id", self.current_post_id).execute()
+            auth_state = await self.get_state(AuthState)
+            if not auth_state.is_authenticated or not auth_state.user:
+                logging.warning("User is not authenticated. Cannot create post.")
+                return
+
+            db_client = await self._get_authenticated_client()
+                        
+            db_client.from_("comments").insert({
+                "content": content,
+                "post_id": self.current_post_id,
+                "user_id": auth_state.user.id,
+                "author_email": self.user.email
+            }).execute()
             
-            if board_id:
-                return rx.redirect(f"/boards/{board_id}")
-            else:
-                return rx.redirect("/dashboard")
+            self.new_comment_content = ""
+            
+            PostState.go_to_post(self.current_post_id)
         except Exception as e:
-            print(f"Error deleting post: {e}")
+            print(f"Error creating comment: {e}")
+        yield
+
+    async def delete_comment(self, comment_id: str):
+        """댓글을 삭제합니다."""
+        try:
+            db_client = await self._get_authenticated_client()
+
+            db_client.from_("comments").delete().eq("id", comment_id).execute()
+            logging.info("Calling load_comments")
+            await self.load_comments(db_client)
+        except Exception as e:
+            print(f"Error deleting comment: {e}")
+        yield

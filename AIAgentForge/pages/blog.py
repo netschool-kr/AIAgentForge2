@@ -132,10 +132,9 @@ def blog_page() -> rx.Component:
 
             spacing="6",
             width="100%",
-            max_width="800px",
             margin_x="auto",
             padding_y="8",
         ),
+        size="4",  # 컨테이너 크기를 최대로 설정하여 좌우 여백을 줄입니다.
         on_mount=BlogState.init_state,
     )
-    
