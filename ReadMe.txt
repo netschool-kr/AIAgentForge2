@@ -1,124 +1,30 @@
-# AIAgentForge
+# AIAgentForge2
 
-![AIAgentForge Logo](assets/logo.png) <!-- 로고 이미지가 있으면 assets에 추가하고 경로 수정 -->
+## Python만으로 나만의 AI Agent 서비스 만들기
 
-AIAgentForge는 사용자가 업로드한 문서를 기반으로 AI가 답변을 생성하는 검색 증강 생성(RAG) 플랫폼입니다. 이 프로젝트는 원래 Next.js와 FastAPI로 개발된 ['Langconnect-client'](https://github.com/teddynote-lab/langconnect-client)에 영감을 받아, JavaScript 없이 순수 Python만으로 풀스택 개발이 가능한 Reflex 프레임워크와 Supabase 데이터베이스를 사용해 재구축된 버전입니다.
+이 프로젝트는 **《Python만으로 나만의 AI Agent 서비스 만들기》** 책의 실습 코드 저장소입니다.
 
-이 레포지토리는 책 《Reflex와 Supabase로 Python만으로 AI AgentForge 구축하기》의 코드와 예제를 포함합니다. 책의 철학인 '위대한 백엔드의 재배치'를 바탕으로, AI 개발자가 Python 생태계에서 UI, 백엔드, 데이터베이스 로직을 통합적으로 관리할 수 있도록 설계되었습니다.
+**AI 시대, 개발자의 생산성을 극대화하는 새로운 풀스택 아키텍처를 경험하세요.**
 
-## 주요 기능
+### 📚 프로젝트 소개
 
-- **컬렉션 관리**: 문서 그룹 생성 및 관리.
-- **지능형 수집 파이프라인**: PDF, DOCX 등 다양한 형식의 문서 업로드 시 자동 텍스트 추출, 의미 단위 분할, 벡터 임베딩 변환 및 데이터베이스 저장.
-- **하이브리드 검색**: 키워드 기반 검색(Full-Text Search)과 의미 기반 벡터 검색 결합으로 정확한 결과 제공.
-- **AI 어시스턴트 통합 (MCP)**: AI 에이전트가 검색 기능을 API로 호출하고 실시간 스트리밍 받을 수 있는 엔드포인트 제공.
-- **Reflex 기반 풀스택**: UI, 상태 관리, 백엔드 로직을 Python으로 통합.
-- **Supabase 통합**: 인증, 행 수준 보안(RLS), 벡터 데이터베이스 지원.
+`AIAgentForge`는 순수 Python과 Reflex 프레임워크를 기반으로 구축된 AI Agent 서비스 플랫폼입니다. 이 프로젝트는 AI 로직과 웹 서비스를 위해 Python과 JavaScript를 오가야 했던 기존의 비효율적인 개발 방식을 극복하고, **‘위대한 백엔드의 재배치(The Great Backend Relocation)’**라는 철학을 실현합니다.
 
-## 필수 요구사항
+이 저장소의 코드를 통해 다음을 직접 경험하고 학습할 수 있습니다.
 
-- Python 3.11+
-- Conda (가상 환경 관리 추천)
-- Supabase 계정 (프로젝트 생성 후 URL 및 ANON_KEY 필요)
-- Reflex 라이브러리
+- **Reflex**: 순수 Python으로 프론트엔드와 백엔드를 모두 구현하는 통합 개발 경험.
+- **Supabase**: 데이터베이스의 RLS(행 수준 보안)를 활용하여 애플리케이션 코드의 보안 로직을 제거하는 방법.
+- **비동기 파이프라인**: 외부 의존성 없이 `async/yield`를 통해 장기 실행 작업을 실시간으로 처리하는 기술.
+- **고급 검색**: 키워드 검색과 벡터 검색을 융합하는 하이브리드 검색 로직을 PostgreSQL의 RPC로 재배치하는 아키텍처.
+- **AI Agent 구현**: 블로그 생성, 유튜브 번역, 심층 리서치 등 다양한 AI 에이전트를 구축하는 실전 노하우.
 
-## 설치 및 설정
+### 🚀 시작하기
 
-1. **레포지토리 클론**:
-   ```
-   git clone https://github.com/netschool-kr/AIAgentForge.git
-   cd AIAgentForge
-   ```
+#### 1. 환경 설정
 
-2. **Conda 가상 환경 생성 및 활성화**:
-   ```
-   conda create -n AIAgentForge python=3.11
-   conda activate AIAgentForge
-   ```
+`AIAgentForge`는 Python 3.11 이상을 권장합니다. Conda 환경을 사용하여 프로젝트 의존성을 격리하는 것을 추천합니다.
 
-3. **의존성 설치**:
-   ```
-   pip install -r requirements.txt
-   ```
-
-4. **환경 변수 설정**:
-   - `.env` 파일을 루트 디렉토리에 생성하고 다음을 추가:
-     ```
-     SUPABASE_URL=your_supabase_url
-     SUPABASE_ANON_KEY=your_supabase_anon_key
-     TEST_USER_EMAIL=your_test_email
-     TEST_USER_PASSWORD=your_test_password
-     ```
-   - Supabase 프로젝트에서 데이터베이스 테이블 및 RLS 정책 설정 (책 4~5장 참조).
-
-5. **Reflex 초기화** (이미 설정된 경우 생략):
-   ```
-   reflex init
-   ```
-
-## 실행 방법
-
-1. **개발 서버 실행**:
-   ```
-   reflex run
-   ```
-   - GUI: http://localhost:3000
-   - API: http://localhost:8000 (예: /api/v1/mcp/stream)
-
-2. **테스트 스크립트 실행**:
-   - 토큰 생성: `python scripts/get_token.py`
-   - MCP 스트림 테스트: `python scripts/test_mcp_stream.py`
-
-3. **VS Code 디버깅**:
-   - `.vscode/launch.json` 설정 후 F5 키로 실행 (책 2장 참조).
-
-## 프로젝트 구조
-
-```
-AIAgentForge/
-├── .env                  # 환경 변수
-├── requirements.txt      # 의존성 목록
-├── rxconfig.py           # Reflex 설정
-├── assets/               # 정적 파일 (이미지, CSS 등)
-└── AIAgentForge/
-    ├── __init__.py
-    ├── api/              # API 라우터 및 의존성 (FastAPI 통합)
-    ├── components/       # 재사용 UI 컴포넌트
-    ├── pages/            # 페이지 UI 정의 (e.g., dashboard.py)
-    ├── scripts/          # 테스트 스크립트 (e.g., get_token.py)
-    ├── state/            # 상태 관리 클래스 (e.g., dashboard_state.py)
-    ├── utils/            # 유틸리티 함수 (e.g., embedder.py)
-    └── AIAgentForge.py   # 메인 앱 진입점
-```
-
-- **state/**: 애플리케이션 상태 (rx.State) 관리.
-- **pages/**: UI 컴포넌트 정의.
-- **api/**: FastAPI 기반 API 엔드포인트 (MCP 스트리밍 등).
-
-## 사용 예시
-
-- **문서 업로드 및 검색**:
-  - GUI에서 컬렉션 생성 후 문서 업로드.
-  - 쿼리 입력 시 하이브리드 검색 결과 표시.
-
-- **AI 에이전트 통합**:
-  - MCP 엔드포인트 호출: POST /api/v1/mcp/stream (JSON: {"query": "...", "collection_id": "..."})
-
-## 기여
-
-1. 이슈 제출 또는 PR 환영.
-2. 코드 스타일: PEP 8 준수.
-3. CI/CD: GitHub Actions로 테스트 실행.
-
-## 라이선스
-
-MIT License. 자세한 내용은 [LICENSE](LICENSE) 파일 참조.
-
-## 참고 자료
-
-- 책: 《Reflex와 Supabase로 Python만으로 AI AgentForge 구축하기》 (황삼청, 2025)
-- Reflex 공식 문서: [https://reflex.dev/docs](https://reflex.dev/docs)
-- Supabase 문서: [https://supabase.com/docs](https://supabase.com/docs)
-- 원본 영감: [Langconnect-client](https://github.com/teddynote-lab/langconnect-client)
-
-문의: [netschool-kr](https://github.com/netschool-kr)
+```bash
+conda create -n AIAgentForge python=3.11
+conda activate AIAgentForge
+pip install -r requirements.txt
