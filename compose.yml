@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: reflex_backend
+    environment:
+      - REFLEX_ENV_MODE=prod
+      - REDIS_URL=redis://redis:6379/0
+      # Supabase 등 .env 변수 추가 (직접 입력하거나 .env_file 사용)
+      - SUPABASE_URL=${SUPABASE_URL}  # .env에서 가져옴
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      # 다른 변수 추가
+    env_file:
+      - .env  # .env 파일 전체 로드
+    depends_on:
+      - redis
+    networks:
+      - reflex-net
+    expose:
+      - "8000"  # 내부 포트만 노출
+
+  frontend:
+    build:
+      context: .
+      dockerfile: web.Dockerfile
+    container_name: reflex_frontend
+    ports:
+      - "80:80"  # 외부 80번으로 접근
+    environment:
+      - API_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - reflex-net
+
+  redis:
+    image: redis:alpine
+    container_name: reflex_redis
+    networks:
+      - reflex-net
+
+networks:
+  reflex-net:
+    driver: bridge
