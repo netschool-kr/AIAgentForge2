@@ -13,8 +13,6 @@ AI 에이전트 서비스의 시대, Python으로 열다
 독자의 여정: 스크립터에서 AI 서비스 아키텍트로
 이 프로젝트는 이론에만 머무르지 않습니다. 이미 완성되어 잘 동작하는 AI 에이전트 플랫폼인 'Langconnect-client'를 순수 Python 스택으로 처음부터 다시 구축하는 실용적인 여정을 함께할 것입니다. 이 여정의 끝에서, 독자는 더 이상 AI 모델을 활용하는 단순한 개발자, 즉 '스크립터'에 머무르지 않을 것입니다. 이 프로젝트의 과정을 마스터한 독자는 자신만의 독창적인 AI Agent 서비스를 처음부터 끝까지 설계하고 구축하며 배포할 수 있는 진정한 **'AI 서비스 아키텍트'**로 거듭나게 될 것입니다.
 
-프로젝트 개요
-이 프로젝트는 Next.js와 FastAPI로 개발된 'Langconnect-client'에 영감을 받아, 순수 Python만으로 풀스택 개발이 가능한 Reflex와 Supabase를 사용해 재구축된 버전입니다.
 
 주요 기능
 컬렉션 관리: 문서 그룹 생성 및 관리.
@@ -226,7 +224,7 @@ MIT License. 자세한 내용은 LICENSE 파일 참조.
 
 참고 자료
 책: 《Reflex와 Supabase로 Python만으로 AI AgentForge 구축하기》 (황삼청, 2025)
-
+책: 위대한 재배치: 파이썬 만으로 AI Agent 풀스택 아키텍트 되기 (황삼청, 2025)
 Reflex 공식 문서: https://reflex.dev/docs
 
 Supabase 문서: https://supabase.com/docs
