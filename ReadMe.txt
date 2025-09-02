@@ -96,7 +96,17 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_ANON_KEY=your_supabase_anon_key
 TEST_USER_EMAIL=your_test_email
 TEST_USER_PASSWORD=your_test_password
-
+PUBLIC_SITE_URL=http://localhost:3000
+SUPABASE_SERVICE_KEY=
+SUPABASE_DATABASE_PASSWORD=
+OPENAI_API_KEY=
+LANGCHAIN_API_KEY=
+LANGSMITH_API_KEY=
+TAVILY_API_KEY=
+RESEND_API_KEY=
+sender_email = xxx@netschool.kr
+recipient_email = xxx@naver.com
+REFLEX_DB_URL= 
 Supabase 프로젝트에서 데이터베이스 테이블 및 RLS 정책 설정 (책 4~5장 참조).
 
 Reflex 초기화 (이미 설정된 경우 생략):
