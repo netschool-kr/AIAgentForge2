@@ -56,7 +56,7 @@ setup_langchain_tracing()
 app = rx.App(
     api_transformer=fastapi_app,
 )
-
+#app = rx.App(backend_only=bool(os.environ.get('REFLEX_BACKEND_ONLY')))
 # 보호된 라우트
 app.add_page(
     dashboard_page, 
