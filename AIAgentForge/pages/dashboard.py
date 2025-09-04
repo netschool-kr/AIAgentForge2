@@ -40,6 +40,8 @@ def dashboard_page() -> rx.Component:
     return rx.vstack(
         navbar(),
         rx.heading("사용자 대시보드", size="8"),
+        # 총 사용자 수를 표시
+        rx.text(f"총 사용자:{DashboardState.total_users} 명", size="6"),
         rx.table.root(
             rx.table.header(
                 rx.table.row(
